@@ -7,9 +7,11 @@ namespace InertiaCoreTests;
 public partial class Tests
 {
     [Test]
-    [Description("Test if the JSON result is created correctly.")]
-    public async Task TestJsonResult()
+    [Description("Test if history encryption is sent correctly.")]
+    public async Task TestHistoryEncryptionResult()
     {
+        _factory.EncryptHistory();
+
         var response = _factory.Render("Test/Page", new
         {
             Test = "Test"
@@ -29,11 +31,13 @@ public partial class Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.InstanceOf(typeof(JsonResult)));
+            Assert.That(result, Is.InstanceOf<JsonResult>());
 
             var json = (result as JsonResult)?.Value;
-            Assert.That(json, Is.InstanceOf(typeof(Page)));
+            Assert.That(json, Is.InstanceOf<Page>());
 
+            Assert.That((json as Page)?.ClearHistory, Is.EqualTo(false));
+            Assert.That((json as Page)?.EncryptHistory, Is.EqualTo(true));
             Assert.That((json as Page)?.Component, Is.EqualTo("Test/Page"));
             Assert.That((json as Page)?.Props, Is.EqualTo(new Dictionary<string, object?>
             {
@@ -44,15 +48,22 @@ public partial class Tests
     }
 
     [Test]
-    [Description("Test if the view result is created correctly.")]
-    public async Task TestViewResult()
+    [Description("Test if clear history is sent correctly.")]
+    public async Task TestClearHistoryResult()
     {
+        _factory.ClearHistory();
+
         var response = _factory.Render("Test/Page", new
         {
             Test = "Test"
         });
 
-        var context = PrepareContext();
+        var headers = new HeaderDictionary
+        {
+            { "X-Inertia", "true" }
+        };
+
+        var context = PrepareContext(headers);
 
         response.SetContext(context);
         await response.ProcessResponse();
@@ -61,14 +72,15 @@ public partial class Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.InstanceOf(typeof(ViewResult)));
-            Assert.That((result as ViewResult)?.ViewName, Is.EqualTo("~/Views/App.cshtml"));
+            Assert.That(result, Is.InstanceOf<JsonResult>());
 
-            var model = (result as ViewResult)?.Model;
-            Assert.That(model, Is.InstanceOf(typeof(Page)));
+            var json = (result as JsonResult)?.Value;
+            Assert.That(json, Is.InstanceOf<Page>());
 
-            Assert.That((model as Page)?.Component, Is.EqualTo("Test/Page"));
-            Assert.That((model as Page)?.Props, Is.EqualTo(new Dictionary<string, object?>
+            Assert.That((json as Page)?.ClearHistory, Is.EqualTo(true));
+            Assert.That((json as Page)?.EncryptHistory, Is.EqualTo(false));
+            Assert.That((json as Page)?.Component, Is.EqualTo("Test/Page"));
+            Assert.That((json as Page)?.Props, Is.EqualTo(new Dictionary<string, object?>
             {
                 { "test", "Test" },
                 { "errors", new Dictionary<string, string>(0) }

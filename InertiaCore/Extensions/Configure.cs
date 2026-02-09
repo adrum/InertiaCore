@@ -17,11 +17,18 @@ public static class Configure
         var factory = app.ApplicationServices.GetRequiredService<IResponseFactory>();
         Inertia.UseFactory(factory);
 
+        var viteBuilder = app.ApplicationServices.GetService<IViteBuilder>();
+        if (viteBuilder != null)
+        {
+            Vite.UseBuilder(viteBuilder);
+            Inertia.Version(Vite.GetManifestHash);
+        }
+
         app.Use(async (context, next) =>
         {
             if (context.IsInertiaRequest()
                 && context.Request.Method == "GET"
-                && context.Request.Headers["X-Inertia-Version"] != Inertia.GetVersion())
+                && context.Request.Headers[InertiaHeader.Version] != Inertia.GetVersion())
             {
                 await OnVersionChange(context, app);
                 return;
@@ -49,14 +56,23 @@ public static class Configure
         return services;
     }
 
+    public static IServiceCollection AddViteHelper(this IServiceCollection services,
+        Action<ViteOptions>? options = null)
+    {
+        services.AddSingleton<IViteBuilder, ViteBuilder>();
+        if (options != null) services.Configure(options);
+
+        return services;
+    }
+
     private static async Task OnVersionChange(HttpContext context, IApplicationBuilder app)
     {
-        var tempData = app.ApplicationServices.GetRequiredService<TempDataDictionaryFactory>()
+        var tempData = app.ApplicationServices.GetRequiredService<ITempDataDictionaryFactory>()
             .GetTempData(context);
 
         if (tempData.Any()) tempData.Keep();
 
-        context.Response.Headers.Add("X-Inertia-Location", context.RequestedUri());
+        context.Response.Headers.Override(InertiaHeader.Location, context.RequestedUri());
         context.Response.StatusCode = (int)HttpStatusCode.Conflict;
 
         await context.Response.CompleteAsync();
