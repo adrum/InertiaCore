@@ -38,8 +38,6 @@ internal class ResponseFactory : IResponseFactory
     private readonly IOptions<InertiaOptions> _options;
 
     private object? _version;
-    private bool _clearHistory;
-    private bool? _encryptHistory;
 
     public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IOptions<InertiaOptions> options) =>
         (_contextAccessor, _gateway, _options) = (contextAccessor, gateway, options);
@@ -54,7 +52,7 @@ internal class ResponseFactory : IResponseFactory
                 .ToDictionary(o => o.Name, o => o.GetValue(props))
         };
 
-        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _encryptHistory ?? _options.Value.EncryptHistory, _clearHistory);
+        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), GetEncryptHistory(), GetClearHistory());
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
@@ -135,9 +133,39 @@ internal class ResponseFactory : IResponseFactory
         context.Features.Set(sharedData);
     }
 
-    public void ClearHistory(bool clear = true) => _clearHistory = clear;
+    public void ClearHistory(bool clear = true)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context != null)
+        {
+            context.Items["inertia.clear_history"] = clear;
+        }
+    }
 
-    public void EncryptHistory(bool encrypt = true) => _encryptHistory = encrypt;
+    public void EncryptHistory(bool encrypt = true)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context != null)
+        {
+            context.Items["inertia.encrypt_history"] = encrypt;
+        }
+    }
+
+    private bool GetClearHistory()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context?.Items.TryGetValue("inertia.clear_history", out var value) == true && value is bool clear)
+            return clear;
+        return false;
+    }
+
+    private bool GetEncryptHistory()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context?.Items.TryGetValue("inertia.encrypt_history", out var value) == true && value is bool encrypt)
+            return encrypt;
+        return _options.Value.EncryptHistory;
+    }
 
     public LazyProp Lazy(Func<object?> callback) => new(callback);
     public LazyProp Lazy(Func<Task<object?>> callback) => new(callback);

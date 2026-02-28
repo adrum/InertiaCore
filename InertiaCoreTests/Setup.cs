@@ -19,7 +19,10 @@ public partial class Tests
     [SetUp]
     public void Setup()
     {
+        var httpContext = new DefaultHttpContext();
         var contextAccessor = new Mock<IHttpContextAccessor>();
+        contextAccessor.SetupGet(x => x.HttpContext).Returns(httpContext);
+
         var httpClientFactory = new Mock<IHttpClientFactory>();
 
         var gateway = new Gateway(httpClientFactory.Object);
