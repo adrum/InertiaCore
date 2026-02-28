@@ -95,4 +95,65 @@ public partial class Tests
             Assert.That(page?.Flash!["info"], Is.EqualTo("Welcome back"));
         });
     }
+
+    [Test]
+    [Description("Test that flash data set directly in HttpContext.Items is included in the page.")]
+    public async Task TestFlashDataFromItemsIncludedInPage()
+    {
+        var (factory, httpContext) = PrepareFlashFactory();
+
+        // Set flash data directly in Items (simulating what Inertia.Flash does internally)
+        httpContext.Items["inertia.flash_data"] = new Dictionary<string, object?> { { "message", "Success!" } };
+
+        var response = factory.Render("TestComponent", new Dictionary<string, object?>
+        {
+            { "data", "value" }
+        });
+
+        var context = PrepareContextForFlash(httpContext);
+
+        response.SetContext(context);
+        await response.ProcessResponse();
+
+        var page = response.GetJson().Value as Page;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page, Is.Not.Null);
+            Assert.That(page!.Flash, Is.Not.Null);
+            Assert.That(page.Flash!["message"], Is.EqualTo("Success!"));
+        });
+    }
+
+    [Test]
+    [Description("Test that flash data dictionary overload merges correctly.")]
+    public async Task TestFlashDataDictionaryOverload()
+    {
+        var (factory, httpContext) = PrepareFlashFactory();
+
+        var response = factory.Render("Test/Page", new
+        {
+            Test = "Test"
+        })
+        .Flash(new Dictionary<string, object?>
+        {
+            { "success", "Created!" },
+            { "warning", "Check details" }
+        });
+
+        var context = PrepareContextForFlash(httpContext);
+
+        response.SetContext(context);
+        await response.ProcessResponse();
+
+        var page = response.GetJson().Value as Page;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page?.Flash, Is.Not.Null);
+            Assert.That(page?.Flash, Has.Count.EqualTo(2));
+            Assert.That(page?.Flash!["success"], Is.EqualTo("Created!"));
+            Assert.That(page?.Flash!["warning"], Is.EqualTo("Check details"));
+        });
+    }
 }
