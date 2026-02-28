@@ -109,8 +109,23 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => onlyKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = new Dictionary<string, object?>();
+        foreach (var key in onlyKeys)
+        {
+            if (key.Contains('.'))
+            {
+                var value = DotNotationHelper.Get(props, key);
+                DotNotationHelper.Set(result, key, value);
+            }
+            else
+            {
+                var match = props.FirstOrDefault(kv =>
+                    string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (match.Key != null)
+                    result[match.Key] = match.Value;
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -124,8 +139,22 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => exceptKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase) == false)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = props.ToDictionary(kv => kv.Key, kv => kv.Value);
+        foreach (var key in exceptKeys)
+        {
+            if (key.Contains('.'))
+            {
+                DotNotationHelper.Forget(result, key);
+            }
+            else
+            {
+                var match = result.Keys.FirstOrDefault(k =>
+                    string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    result.Remove(match);
+            }
+        }
+        return result;
     }
 
     /// <summary>
