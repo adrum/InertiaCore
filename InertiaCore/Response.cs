@@ -48,6 +48,7 @@ public class Response : IActionResult
         };
 
         page.Props["errors"] = GetErrors();
+        page.Flash = ResolveFlashData();
 
         SetPage(page);
     }
@@ -217,5 +218,81 @@ public class Response : IActionResult
     {
         _viewData = viewData;
         return this;
+    }
+
+    /// <summary>
+    /// Add flash data to the response.
+    /// </summary>
+    public Response Flash(string key, object? value)
+    {
+        Inertia.Flash(key, value);
+        return this;
+    }
+
+    /// <summary>
+    /// Add flash data to the response from a dictionary.
+    /// </summary>
+    public Response Flash(IDictionary<string, object?> data)
+    {
+        Inertia.Flash(data);
+        return this;
+    }
+
+    /// <summary>
+    /// Resolve flash data for the page object.
+    /// </summary>
+    private Dictionary<string, object?>? ResolveFlashData()
+    {
+        try
+        {
+            var httpContext = _context?.HttpContext;
+            if (httpContext == null) return null;
+
+            var flash = new Dictionary<string, object?>();
+
+            // Check request-scoped items (set during this request)
+            if (httpContext.Items.TryGetValue("inertia.flash_data", out var existing) &&
+                existing is Dictionary<string, object?> itemsFlash)
+            {
+                foreach (var kvp in itemsFlash)
+                    flash[kvp.Key] = kvp.Value;
+            }
+
+            // Also check TempData for flash data from previous request (reflashed on redirect)
+            try
+            {
+                var tempDataFactory =
+                    httpContext.RequestServices?.GetService(typeof(ITempDataDictionaryFactory))
+                        as ITempDataDictionaryFactory;
+                if (tempDataFactory != null)
+                {
+                    var tempData = tempDataFactory.GetTempData(httpContext);
+                    if (tempData.ContainsKey("inertia.flash_data") && tempData["inertia.flash_data"] is string json &&
+                        !string.IsNullOrEmpty(json))
+                    {
+                        var stored =
+                            System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(json);
+                        if (stored != null)
+                        {
+                            foreach (var kvp in stored)
+                            {
+                                if (!flash.ContainsKey(kvp.Key))
+                                    flash[kvp.Key] = kvp.Value;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // TempData not available
+            }
+
+            return flash.Count > 0 ? flash : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

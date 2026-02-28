@@ -35,6 +35,23 @@ public static class Configure
             }
 
             await next();
+
+            // Persist flash data to TempData on redirect
+            if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)
+            {
+                try
+                {
+                    if (context.Items.TryGetValue("inertia.flash_data", out var flash)
+                        && flash is Dictionary<string, object?> flashDict && flashDict.Count > 0)
+                    {
+                        var tempDataFactory = context.RequestServices.GetRequiredService<ITempDataDictionaryFactory>();
+                        var tempData = tempDataFactory.GetTempData(context);
+                        tempData["inertia.flash_data"] = System.Text.Json.JsonSerializer.Serialize(flashDict);
+                        tempData.Save();
+                    }
+                }
+                catch { }
+            }
         });
 
         return app;

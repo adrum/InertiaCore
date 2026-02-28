@@ -7,6 +7,8 @@ using InertiaCore.Ssr;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace InertiaCore;
@@ -29,6 +31,9 @@ internal interface IResponseFactory
     public AlwaysProp Always(Func<Task<object?>> callback);
     public LazyProp Lazy(Func<object?> callback);
     public LazyProp Lazy(Func<Task<object?>> callback);
+    public void Flash(string key, object? value);
+    public void Flash(IDictionary<string, object?> data);
+    public Dictionary<string, object?> GetFlashed();
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -144,4 +149,61 @@ internal class ResponseFactory : IResponseFactory
     public AlwaysProp Always(object? value) => new(value);
     public AlwaysProp Always(Func<object?> callback) => new(callback);
     public AlwaysProp Always(Func<Task<object?>> callback) => new(callback);
+
+    private const string FlashDataKey = "inertia.flash_data";
+
+    public void Flash(string key, object? value)
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+        flash[key] = value;
+        SetFlashStore(context, flash);
+    }
+
+    public void Flash(IDictionary<string, object?> data)
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+        foreach (var kvp in data)
+            flash[kvp.Key] = kvp.Value;
+        SetFlashStore(context, flash);
+    }
+
+    public Dictionary<string, object?> GetFlashed()
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+
+        try
+        {
+            var tempDataFactory = context.RequestServices?.GetService<ITempDataDictionaryFactory>();
+            if (tempDataFactory != null)
+            {
+                var tempData = tempDataFactory.GetTempData(context);
+                if (tempData.ContainsKey(FlashDataKey) && tempData[FlashDataKey] is string json && !string.IsNullOrEmpty(json))
+                {
+                    var stored = JsonSerializer.Deserialize<Dictionary<string, object?>>(json);
+                    if (stored != null)
+                        foreach (var kvp in stored)
+                            if (!flash.ContainsKey(kvp.Key))
+                                flash[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+        catch { }
+
+        return flash;
+    }
+
+    private static Dictionary<string, object?> GetFlashStore(HttpContext context)
+    {
+        if (context.Items.TryGetValue(FlashDataKey, out var existing) && existing is Dictionary<string, object?> flash)
+            return flash;
+        return new Dictionary<string, object?>();
+    }
+
+    private static void SetFlashStore(HttpContext context, Dictionary<string, object?> flash)
+    {
+        context.Items[FlashDataKey] = flash;
+    }
 }

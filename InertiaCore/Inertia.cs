@@ -40,4 +40,10 @@ public static class Inertia
     public static LazyProp Lazy(Func<object?> callback) => _factory.Lazy(callback);
 
     public static LazyProp Lazy(Func<Task<object?>> callback) => _factory.Lazy(callback);
+
+    public static void Flash(string key, object? value) => _factory.Flash(key, value);
+
+    public static void Flash(IDictionary<string, object?> data) => _factory.Flash(data);
+
+    public static Dictionary<string, object?> GetFlashed() => _factory.GetFlashed();
 }
