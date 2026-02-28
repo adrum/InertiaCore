@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace InertiaCore.Models;
 
 internal class Page
@@ -16,4 +18,7 @@ internal class Page
     public List<string>? DeepMergeProps { get; set; }
 
     public List<string>? MatchPropsOn { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, object>? ScrollProps { get; set; }
 }

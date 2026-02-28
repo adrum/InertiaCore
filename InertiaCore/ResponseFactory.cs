@@ -32,6 +32,8 @@ internal interface IResponseFactory
     public MergeProp Merge(object? value);
     public MergeProp Merge(Func<object?> callback);
     public MergeProp Merge(Func<Task<object?>> callback);
+    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null);
+    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null);
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -150,4 +152,6 @@ internal class ResponseFactory : IResponseFactory
     public MergeProp Merge(object? value) => new(value);
     public MergeProp Merge(Func<object?> callback) => new(callback);
     public MergeProp Merge(Func<Task<object?>> callback) => new(callback);
+    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => new(value, wrapper, metadata);
+    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => new(callback, wrapper, metadata);
 }

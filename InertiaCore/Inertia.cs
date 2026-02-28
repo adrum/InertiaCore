@@ -46,4 +46,8 @@ public static class Inertia
     public static MergeProp Merge(Func<object?> callback) => _factory.Merge(callback);
 
     public static MergeProp Merge(Func<Task<object?>> callback) => _factory.Merge(callback);
+
+    public static ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => _factory.Scroll(value, wrapper, metadata);
+
+    public static ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => _factory.Scroll(callback, wrapper, metadata);
 }

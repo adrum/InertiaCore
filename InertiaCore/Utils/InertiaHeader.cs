@@ -15,4 +15,8 @@ public static class InertiaHeader
     public const string PartialOnly = "X-Inertia-Partial-Data";
 
     public const string PartialExcept = "X-Inertia-Partial-Except";
+
+    public const string Reset = "X-Inertia-Reset";
+
+    public const string InfiniteScrollMergeIntent = "X-Inertia-Infinite-Scroll-Merge-Intent";
 }

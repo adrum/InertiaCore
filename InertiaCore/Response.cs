@@ -53,6 +53,7 @@ public class Response : IActionResult
         page.PrependProps = ResolvePrependProps(_props);
         page.DeepMergeProps = ResolveDeepMergeProps(_props);
         page.MatchPropsOn = ResolveMatchPropsOn(_props);
+        page.ScrollProps = ResolveScrollProps(props);
 
         SetPage(page);
     }
@@ -64,12 +65,28 @@ public class Response : IActionResult
     {
         var props = _props;
 
+        ConfigureScrollProps();
         props = ResolveSharedProps(props);
         props = ResolvePartialProperties(props);
         props = ResolveAlways(props);
         props = await ResolvePropertyInstances(props);
 
         return props;
+    }
+
+    /// <summary>
+    /// Configure scroll props merge intent from the request header.
+    /// </summary>
+    private void ConfigureScrollProps()
+    {
+        var request = _context!.HttpContext.Request;
+        foreach (var kv in _props)
+        {
+            if (kv.Value is ScrollProp scrollProp)
+            {
+                scrollProp.ConfigureMergeIntent(request);
+            }
+        }
     }
 
     /// <summary>
@@ -93,7 +110,7 @@ public class Response : IActionResult
 
         if (!isPartial)
             return props
-                .Where(kv => kv.Value is not LazyProp)
+                .Where(kv => kv.Value is not LazyProp && kv.Value is not IIgnoresFirstLoad)
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
 
         props = props.ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -277,6 +294,42 @@ public class Response : IActionResult
         }
 
         return result.Count > 0 ? result : null;
+    }
+
+    /// <summary>
+    /// Resolve scroll props metadata for the page object.
+    /// </summary>
+    private Dictionary<string, object>? ResolveScrollProps(Dictionary<string, object?> props)
+    {
+        var resetProps = new HashSet<string>(
+            _context!.HttpContext.Request.Headers[InertiaHeader.Reset]
+                .ToString()
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        bool isPartial = _context!.IsInertiaPartialComponent(_component);
+
+        var scrollProps = _props
+            .Where(kv => kv.Value is ScrollProp)
+            .Where(kv =>
+            {
+                var sp = (ScrollProp)kv.Value!;
+                // On non-partial, exclude deferred scroll props
+                if (!isPartial && sp.ShouldDefer()) return false;
+                return true;
+            })
+            .ToDictionary(
+                kv => kv.Key.ToCamelCase(),
+                kv =>
+                {
+                    var sp = (ScrollProp)kv.Value!;
+                    var metadata = sp.GetMetadata();
+                    metadata["reset"] = resetProps.Contains(kv.Key);
+                    return (object)metadata;
+                });
+
+        return scrollProps.Count == 0 ? null : scrollProps;
     }
 
     protected internal JsonResult GetJson()
