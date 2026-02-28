@@ -40,4 +40,8 @@ public static class Inertia
     public static LazyProp Lazy(Func<object?> callback) => _factory.Lazy(callback);
 
     public static LazyProp Lazy(Func<Task<object?>> callback) => _factory.Lazy(callback);
+
+    public static OnceProp Once(Func<object?> callback) => _factory.Once(callback);
+
+    public static OnceProp Once(Func<Task<object?>> callback) => _factory.Once(callback);
 }

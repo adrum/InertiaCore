@@ -47,6 +47,7 @@ public class Response : IActionResult
             ClearHistory = _clearHistory,
         };
 
+        page.OnceProps = ResolveOnceProps(props);
         page.Props["errors"] = GetErrors();
 
         SetPage(page);
@@ -61,6 +62,7 @@ public class Response : IActionResult
 
         props = ResolveSharedProps(props);
         props = ResolvePartialProperties(props);
+        props = ResolveOnceProperties(props);
         props = ResolveAlways(props);
         props = await ResolvePropertyInstances(props);
 
@@ -142,6 +144,58 @@ public class Response : IActionResult
         return props
             .Where(kv => kv.Value is not AlwaysProp)
             .Concat(alwaysProps).ToDictionary(kv => kv.Key, kv => kv.Value);
+    }
+
+    /// <summary>
+    /// Filter out once props that have already been loaded by the client.
+    /// </summary>
+    private Dictionary<string, object?> ResolveOnceProperties(Dictionary<string, object?> props)
+    {
+        if (!_context!.HttpContext.IsInertiaRequest() || _context!.IsInertiaPartialComponent(_component))
+            return props;
+
+        var header = _context!.HttpContext.Request.Headers[InertiaHeader.ExceptOnceProps].ToString();
+        if (string.IsNullOrEmpty(header)) return props;
+
+        var exceptOnceProps = header.Split(',').Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).ToList();
+        if (exceptOnceProps.Count == 0) return props;
+
+        return props.Where(kv =>
+        {
+            if (kv.Value is not IOnceable onceable) return true;
+            if (!onceable.ShouldResolveOnce()) return true;
+            if (onceable.ShouldBeRefreshed()) return true;
+            return !exceptOnceProps.Contains(onceable.GetOnceKey() ?? kv.Key, StringComparer.OrdinalIgnoreCase);
+        }).ToDictionary(kv => kv.Key, kv => kv.Value);
+    }
+
+    /// <summary>
+    /// Build metadata for once props included in the response.
+    /// </summary>
+    private Dictionary<string, object>? ResolveOnceProps(Dictionary<string, object?> props)
+    {
+        var onlyProps = _context!.HttpContext.Request.Headers[InertiaHeader.PartialOnly]
+            .ToString().Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var exceptProps = new HashSet<string>(
+            _context!.HttpContext.Request.Headers[InertiaHeader.PartialExcept]
+                .ToString().Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim()), StringComparer.OrdinalIgnoreCase);
+
+        var onceProps = _props
+            .Where(kv => kv.Value is IOnceable onceable && onceable.ShouldResolveOnce())
+            .Where(kv => onlyProps.Count == 0 || onlyProps.Contains(kv.Key))
+            .Where(kv => !exceptProps.Contains(kv.Key))
+            .ToDictionary(
+                kv => ((IOnceable)kv.Value!).GetOnceKey() ?? kv.Key,
+                kv => (object)new Dictionary<string, object?> {
+                    { "prop", kv.Key },
+                    { "expiresAt", ((IOnceable)kv.Value!).ExpiresAt() }
+                });
+
+        return onceProps.Count == 0 ? null : onceProps;
     }
 
     /// <summary>
