@@ -49,6 +49,11 @@ public class Response : IActionResult
 
         page.Props["errors"] = GetErrors();
 
+        page.MergeProps = ResolveMergeProps(_props);
+        page.PrependProps = ResolvePrependProps(_props);
+        page.DeepMergeProps = ResolveDeepMergeProps(_props);
+        page.MatchPropsOn = ResolveMatchPropsOn(_props);
+
         SetPage(page);
     }
 
@@ -168,6 +173,110 @@ public class Response : IActionResult
 
             return value;
         }))).ToDictionary(pair => pair.key, pair => pair.Item2);
+    }
+
+    /// <summary>
+    /// Resolve merge props that should be appended (excludes deep merge and prepend props).
+    /// Returns a flat list of prop keys or key.path entries.
+    /// </summary>
+    private static List<string>? ResolveMergeProps(Dictionary<string, object?> props)
+    {
+        var mergeableProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
+            .ToList();
+
+        if (mergeableProps.Count == 0) return null;
+
+        var result = new List<string>();
+
+        foreach (var kv in mergeableProps)
+        {
+            var m = (Mergeable)kv.Value!;
+            var key = kv.Key.ToCamelCase();
+
+            if (m.AppendsAtRoot())
+            {
+                result.Add(key);
+            }
+
+            foreach (var path in m.AppendsAtPaths)
+            {
+                result.Add($"{key}.{path}");
+            }
+        }
+
+        return result.Count > 0 ? result : null;
+    }
+
+    /// <summary>
+    /// Resolve props that should be prepended during merging.
+    /// Returns a flat list of prop keys or key.path entries.
+    /// </summary>
+    private static List<string>? ResolvePrependProps(Dictionary<string, object?> props)
+    {
+        var mergeableProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
+            .ToList();
+
+        if (mergeableProps.Count == 0) return null;
+
+        var result = new List<string>();
+
+        foreach (var kv in mergeableProps)
+        {
+            var m = (Mergeable)kv.Value!;
+            var key = kv.Key.ToCamelCase();
+
+            if (m.PrependsAtRoot())
+            {
+                result.Add(key);
+            }
+
+            foreach (var path in m.PrependsAtPaths)
+            {
+                result.Add($"{key}.{path}");
+            }
+        }
+
+        return result.Count > 0 ? result : null;
+    }
+
+    /// <summary>
+    /// Resolve props that should be deep merged.
+    /// </summary>
+    private static List<string>? ResolveDeepMergeProps(Dictionary<string, object?> props)
+    {
+        var deepMergeProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldDeepMerge())
+            .Select(kv => kv.Key.ToCamelCase())
+            .ToList();
+
+        return deepMergeProps.Count > 0 ? deepMergeProps : null;
+    }
+
+    /// <summary>
+    /// Resolve the match-on keys for merge props as a flat list.
+    /// Returns entries like "propKey.strategy" matching Laravel's format.
+    /// </summary>
+    private static List<string>? ResolveMatchPropsOn(Dictionary<string, object?> props)
+    {
+        var result = new List<string>();
+
+        foreach (var kv in props)
+        {
+            if (kv.Value is not Mergeable m || !m.ShouldMerge()) continue;
+
+            var matchOnKeys = m.GetMatchOn();
+            if (matchOnKeys == null || matchOnKeys.Length == 0) continue;
+
+            var key = kv.Key.ToCamelCase();
+            foreach (var matchOnItem in matchOnKeys)
+            {
+                result.Add($"{key}.{matchOnItem}");
+            }
+        }
+
+        return result.Count > 0 ? result : null;
     }
 
     protected internal JsonResult GetJson()

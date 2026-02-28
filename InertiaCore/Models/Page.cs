@@ -8,4 +8,12 @@ internal class Page
     public string Url { get; set; } = default!;
     public bool EncryptHistory { get; set; } = false;
     public bool ClearHistory { get; set; } = false;
+
+    public List<string>? MergeProps { get; set; }
+
+    public List<string>? PrependProps { get; set; }
+
+    public List<string>? DeepMergeProps { get; set; }
+
+    public List<string>? MatchPropsOn { get; set; }
 }
