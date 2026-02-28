@@ -22,6 +22,7 @@ public class Response : IActionResult
     private ActionContext? _context;
     private Page? _page;
     private IDictionary<string, object>? _viewData;
+    private List<int> _cacheFor = new();
 
     internal Response(string component, Dictionary<string, object?> props, string rootView, string? version, bool encryptHistory, bool clearHistory)
         => (_component, _props, _rootView, _version, _encryptHistory, _clearHistory) = (component, props, rootView, version, encryptHistory, clearHistory);
@@ -48,6 +49,7 @@ public class Response : IActionResult
         };
 
         page.Props["errors"] = GetErrors();
+        page.Cache = ResolveCacheDirections();
 
         SetPage(page);
     }
@@ -170,6 +172,11 @@ public class Response : IActionResult
         }))).ToDictionary(pair => pair.key, pair => pair.Item2);
     }
 
+    private List<int>? ResolveCacheDirections()
+    {
+        return _cacheFor.Count == 0 ? null : _cacheFor;
+    }
+
     protected internal JsonResult GetJson()
     {
         _context!.HttpContext.Response.Headers.Override(InertiaHeader.Inertia, "true");
@@ -212,6 +219,24 @@ public class Response : IActionResult
     protected internal void SetContext(ActionContext context) => _context = context;
 
     private void SetPage(Page page) => _page = page;
+
+    /// <summary>
+    /// Set the cache duration for the response.
+    /// </summary>
+    public Response Cache(params int[] seconds)
+    {
+        _cacheFor.AddRange(seconds);
+        return this;
+    }
+
+    /// <summary>
+    /// Set the cache duration using TimeSpan.
+    /// </summary>
+    public Response Cache(params TimeSpan[] durations)
+    {
+        _cacheFor.AddRange(durations.Select(d => (int)d.TotalSeconds));
+        return this;
+    }
 
     public Response WithViewData(IDictionary<string, object> viewData)
     {
