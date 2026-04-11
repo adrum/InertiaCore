@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace InertiaCore.Extensions;
 
@@ -27,7 +27,6 @@ public static class Configure
 
         // Check if TempData services are available for error bag functionality
         CheckTempDataAvailability(app);
-
         app.UseMiddleware<Middleware>();
 
         return app;
@@ -39,9 +38,7 @@ public static class Configure
         var environment = app.ApplicationServices.GetService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
         if (environment?.EnvironmentName == "Test" ||
             (environment?.EnvironmentName != "Development" && IsTestEnvironment()))
-        {
             return;
-        }
 
         try
         {
@@ -50,7 +47,7 @@ public static class Configure
             {
                 var logger = app.ApplicationServices.GetService<ILogger<IApplicationBuilder>>();
                 logger?.LogWarning("TempData services are not configured. Error bag functionality will be limited. " +
-                                   "Consider adding services.AddSession() and app.UseSession() to enable full error bag support.");
+                                               "Consider adding services.AddSession() and app.UseSession() to enable full error bag support.");
             }
         }
         catch (Exception)
@@ -58,8 +55,9 @@ public static class Configure
             // If we can't check for TempData services, that's also a sign they might not be configured
             var logger = app.ApplicationServices.GetService<ILogger<IApplicationBuilder>>();
             logger?.LogWarning("Unable to verify TempData configuration. Error bag functionality may be limited. " +
-                               "Ensure services.AddSession() and app.UseSession() are configured for full error bag support.");
+                                           "Ensure services.AddSession() and app.UseSession() are configured for full error bag support.");
         }
+
     }
 
     private static bool IsTestEnvironment()
@@ -81,10 +79,21 @@ public static class Configure
 
         services.AddSingleton<IResponseFactory, ResponseFactory>();
         services.AddSingleton<IGateway, Gateway>();
+        services.AddSingleton<IInertiaSerializer, DefaultInertiaSerializer>();
 
         services.Configure<MvcOptions>(mvcOptions => { mvcOptions.Filters.Add<InertiaActionFilter>(); });
 
         if (options != null) services.Configure(options);
+
+        return services;
+    }
+
+    public static IServiceCollection UseInertiaSerializer<TImplementation>(this IServiceCollection services)
+        where TImplementation : IInertiaSerializer
+    {
+        services.Replace(
+            new ServiceDescriptor(typeof(IInertiaSerializer), typeof(TImplementation), ServiceLifetime.Singleton)
+        );
 
         return services;
     }

@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using InertiaCore.Extensions;
 using InertiaCore.Models;
 using InertiaCore.Props;
@@ -17,13 +15,15 @@ public class Response : IActionResult
     private readonly Dictionary<string, object?> _props;
     private readonly string _rootView;
     private readonly string? _version;
+    private readonly IInertiaSerializer _serializer;
 
     private ActionContext? _context;
     private Page? _page;
     private IDictionary<string, object>? _viewData;
 
-    internal Response(string component, Dictionary<string, object?> props, string rootView, string? version)
-        => (_component, _props, _rootView, _version) = (component, props, rootView, version);
+    internal Response(string component, Dictionary<string, object?> props, string rootView, string? version,
+        IInertiaSerializer serializer)
+        => (_component, _props, _rootView, _version, _serializer) = (component, props, rootView, version, serializer);
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -110,8 +110,23 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => onlyKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = new Dictionary<string, object?>();
+        foreach (var key in onlyKeys)
+        {
+            if (key.Contains('.'))
+            {
+                var value = DotNotationHelper.Get(props, key);
+                DotNotationHelper.Set(result, key, value);
+            }
+            else
+            {
+                var match = props.FirstOrDefault(kv =>
+                    string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (match.Key != null)
+                    result[match.Key] = match.Value;
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -125,8 +140,22 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => exceptKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase) == false)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = props.ToDictionary(kv => kv.Key, kv => kv.Value);
+        foreach (var key in exceptKeys)
+        {
+            if (key.Contains('.'))
+            {
+                DotNotationHelper.Forget(result, key);
+            }
+            else
+            {
+                var match = result.Keys.FirstOrDefault(k =>
+                    string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    result.Remove(match);
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -173,11 +202,7 @@ public class Response : IActionResult
         _context!.HttpContext.Response.Headers.Override("Vary", "Accept");
         _context!.HttpContext.Response.StatusCode = 200;
 
-        return new JsonResult(_page, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
-        });
+        return _serializer.SerializeResult(_page);
     }
 
     private ViewResult GetView()
