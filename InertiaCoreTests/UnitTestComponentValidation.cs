@@ -23,8 +23,8 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { EnsurePagesExist = false });
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
-        var factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var factory = new ResponseFactory(contextAccessor.Object, gateway, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
         Assert.DoesNotThrow(() => factory.Render("NonexistentComponent"));
     }
@@ -41,8 +41,8 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { EnsurePagesExist = true });
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
-        var factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var factory = new ResponseFactory(contextAccessor.Object, gateway, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
         var ex = Assert.Throws<ComponentNotFoundException>(() => factory.Render("NonexistentComponent"));
         Assert.That(ex.Component, Is.EqualTo("NonexistentComponent"));
@@ -75,8 +75,8 @@ public partial class Tests
                 PageExtensions = new[] { ".tsx" }
             });
 
-            var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
-            var factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+            var factory = new ResponseFactory(contextAccessor.Object, gateway, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             Assert.DoesNotThrow(() => factory.Render("TestComponent"));
         }
@@ -115,8 +115,8 @@ public partial class Tests
                 PageExtensions = new[] { ".vue" }
             });
 
-            var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
-            var factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+            var factory = new ResponseFactory(contextAccessor.Object, gateway, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             Assert.DoesNotThrow(() => factory.Render("Auth/Login"));
         }

@@ -1,16 +1,8 @@
-using System.Collections.Generic;
 using System.Net;
-using InertiaCore;
-using InertiaCore.Extensions;
-using InertiaCore.Utils;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace InertiaCoreTests;
@@ -18,15 +10,14 @@ namespace InertiaCoreTests;
 public partial class Tests
 {
     [Test]
-    [Description("Test Back function with Inertia request returns redirect status with location header.")]
+    [Description(
+        "Test Back function with Inertia request returns redirect status with location header."
+    )]
     public async Task TestBackWithInertiaRequest()
     {
         var backResult = _factory.Back("/fallback");
 
-        var headers = new HeaderDictionary
-        {
-            { "X-Inertia", "true" }
-        };
+        var headers = new HeaderDictionary { { "X-Inertia", "true" } };
 
         var responseHeaders = new HeaderDictionary();
         var response = new Mock<HttpResponse>();
@@ -40,7 +31,11 @@ public partial class Tests
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
         httpContext.SetupGet(c => c.Response).Returns(response.Object);
 
-        var context = new ActionContext(httpContext.Object, new RouteData(), new ActionDescriptor());
+        var context = new ActionContext(
+            httpContext.Object,
+            new RouteData(),
+            new ActionDescriptor()
+        );
 
         await backResult.ExecuteResultAsync(context);
 
@@ -50,15 +45,14 @@ public partial class Tests
     }
 
     [Test]
-    [Description("Test Back function with regular request and referrer header redirects to referrer.")]
+    [Description(
+        "Test Back function with regular request and referrer header redirects to referrer."
+    )]
     public async Task TestBackWithReferrerHeader()
     {
         var backResult = _factory.Back("/fallback");
 
-        var headers = new HeaderDictionary
-        {
-            { "Referer", "https://example.com/previous-page" }
-        };
+        var headers = new HeaderDictionary { { "Referer", "https://example.com/previous-page" } };
 
         var responseHeaders = new HeaderDictionary();
         var response = new Mock<HttpResponse>();
@@ -72,7 +66,11 @@ public partial class Tests
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
         httpContext.SetupGet(c => c.Response).Returns(response.Object);
 
-        var context = new ActionContext(httpContext.Object, new RouteData(), new ActionDescriptor());
+        var context = new ActionContext(
+            httpContext.Object,
+            new RouteData(),
+            new ActionDescriptor()
+        );
 
         var result = backResult as IActionResult;
         Assert.That(result, Is.Not.Null);
@@ -81,7 +79,10 @@ public partial class Tests
 
         // Should set status code to 303 (SeeOther) and location header to referrer
         Assert.That(response.Object.StatusCode, Is.EqualTo(303));
-        Assert.That(responseHeaders["Location"].ToString(), Is.EqualTo("https://example.com/previous-page"));
+        Assert.That(
+            responseHeaders["Location"].ToString(),
+            Is.EqualTo("https://example.com/previous-page")
+        );
     }
 
     [Test]
@@ -104,7 +105,11 @@ public partial class Tests
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
         httpContext.SetupGet(c => c.Response).Returns(response.Object);
 
-        var context = new ActionContext(httpContext.Object, new RouteData(), new ActionDescriptor());
+        var context = new ActionContext(
+            httpContext.Object,
+            new RouteData(),
+            new ActionDescriptor()
+        );
 
         var result = backResult as IActionResult;
         Assert.That(result, Is.Not.Null);
@@ -136,7 +141,11 @@ public partial class Tests
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
         httpContext.SetupGet(c => c.Response).Returns(response.Object);
 
-        var context = new ActionContext(httpContext.Object, new RouteData(), new ActionDescriptor());
+        var context = new ActionContext(
+            httpContext.Object,
+            new RouteData(),
+            new ActionDescriptor()
+        );
 
         var result = backResult as IActionResult;
         Assert.That(result, Is.Not.Null);
@@ -168,7 +177,11 @@ public partial class Tests
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
         httpContext.SetupGet(c => c.Response).Returns(response.Object);
 
-        var context = new ActionContext(httpContext.Object, new RouteData(), new ActionDescriptor());
+        var context = new ActionContext(
+            httpContext.Object,
+            new RouteData(),
+            new ActionDescriptor()
+        );
 
         var result = backResult as IActionResult;
         Assert.That(result, Is.Not.Null);
@@ -179,5 +192,4 @@ public partial class Tests
         Assert.That(response.Object.StatusCode, Is.EqualTo(301));
         Assert.That(responseHeaders["Location"].ToString(), Is.EqualTo("/fallback"));
     }
-
 }

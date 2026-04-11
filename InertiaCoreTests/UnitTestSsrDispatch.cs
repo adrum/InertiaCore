@@ -1,5 +1,6 @@
 using InertiaCore.Models;
 using InertiaCore.Ssr;
+using InertiaCore.Utils;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -19,7 +20,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrEnsureBundleExists = true });
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
         Assert.That(gateway.ShouldDispatch(), Is.False);
     }
@@ -35,7 +36,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrEnsureBundleExists = false });
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
         Assert.That(gateway.ShouldDispatch(), Is.True);
     }
@@ -60,7 +61,7 @@ public partial class Tests
             var options = new Mock<IOptions<InertiaOptions>>();
             options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrEnsureBundleExists = true });
 
-            var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             Assert.That(gateway.ShouldDispatch(), Is.True);
         }
@@ -93,7 +94,7 @@ public partial class Tests
             var options = new Mock<IOptions<InertiaOptions>>();
             options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrEnsureBundleExists = false });
 
-            var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             Assert.That(gateway.ShouldDispatch(), Is.True);
         }
@@ -126,7 +127,7 @@ public partial class Tests
             var options = new Mock<IOptions<InertiaOptions>>();
             options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrEnsureBundleExists = true });
 
-            var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             Assert.That(gateway.ShouldDispatch(), Is.True);
         }

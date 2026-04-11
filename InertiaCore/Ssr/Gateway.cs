@@ -1,8 +1,7 @@
 using System.Net.Http.Json;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using InertiaCore.Models;
+using InertiaCore.Utils;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Hosting;
 
@@ -17,20 +16,17 @@ internal interface IGateway : IHasHealthCheck
 internal class Gateway : IGateway
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IInertiaSerializer _serializer;
     private readonly IOptions<InertiaOptions> _options;
     private readonly IWebHostEnvironment _environment;
 
-    public Gateway(IHttpClientFactory httpClientFactory, IOptions<InertiaOptions> options, IWebHostEnvironment environment) =>
-        (_httpClientFactory, _options, _environment) = (httpClientFactory, options, environment);
+    public Gateway(IHttpClientFactory httpClientFactory, IInertiaSerializer serializer,
+        IOptions<InertiaOptions> options, IWebHostEnvironment environment)
+        => (_httpClientFactory, _serializer, _options, _environment) = (httpClientFactory, serializer, options, environment);
 
     public async Task<SsrResponse?> Dispatch(dynamic model, string url)
     {
-        var json = JsonSerializer.Serialize(model,
-            new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            });
+        var json = _serializer.Serialize(model);
         var content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
 
         var client = _httpClientFactory.CreateClient();

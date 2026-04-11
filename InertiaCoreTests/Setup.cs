@@ -25,12 +25,13 @@ public partial class Tests
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
 
+        var serializer = new DefaultInertiaSerializer();
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
 
-        _factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+        _factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
     }
 
     /// <summary>

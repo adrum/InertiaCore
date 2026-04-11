@@ -1,6 +1,7 @@
 using InertiaCore;
 using InertiaCore.Models;
 using InertiaCore.Ssr;
+using InertiaCore.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -82,7 +83,7 @@ public partial class Tests
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
-        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, options.Object, environment.Object);
+        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
 
         factoryWithSession.ClearHistory();
 
@@ -154,7 +155,7 @@ public partial class Tests
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
-        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, options.Object, environment.Object);
+        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
 
         // Simulate first request: set clearHistory and redirect
         factoryWithSession.ClearHistory();

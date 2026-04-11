@@ -1,11 +1,10 @@
-using InertiaCore;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using System.Net;
+using InertiaCore.Extensions;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
-using InertiaCore.Extensions;
 
 namespace InertiaCore;
 
@@ -28,7 +27,41 @@ public class Middleware
             return;
         }
 
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["Vary"] = InertiaHeader.Inertia;
+            return Task.CompletedTask;
+        });
+
         await _next(context);
+
+        if (!context.Response.HasStarted)
+        {
+            context.Response.Headers["Vary"] = InertiaHeader.Inertia;
+        }
+
+        // Convert 302 to 303 for PUT/PATCH/DELETE Inertia requests
+        if (context.IsInertiaRequest()
+            && context.Response.StatusCode == 302
+            && new[] { "PUT", "PATCH", "DELETE" }.Contains(context.Request.Method))
+        {
+            context.Response.StatusCode = 303;
+        }
+
+        // Reflash TempData on redirect responses
+        if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)
+        {
+            try
+            {
+                var tempData = context.RequestServices.GetRequiredService<ITempDataDictionaryFactory>()
+                    .GetTempData(context);
+                if (tempData.Any()) tempData.Keep();
+            }
+            catch
+            {
+                // TempData services not available
+            }
+        }
 
         // Handle empty responses for Inertia requests
         if (context.IsInertiaRequest()
@@ -37,6 +70,7 @@ public class Middleware
         {
             await OnEmptyResponse(context);
         }
+
     }
 
     private static async Task OnVersionChange(HttpContext context)

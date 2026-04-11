@@ -1,12 +1,12 @@
-using System.Net;
 using InertiaCore.Models;
 using InertiaCore.Ssr;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace InertiaCore.Extensions;
@@ -36,7 +36,7 @@ public static class Configure
     private static void CheckTempDataAvailability(IApplicationBuilder app)
     {
         // Skip warning in test environments
-        var environment = app.ApplicationServices.GetService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+        var environment = app.ApplicationServices.GetService<IWebHostEnvironment>();
         if (environment?.EnvironmentName == "Test" ||
             (environment?.EnvironmentName != "Development" && IsTestEnvironment()))
         {
@@ -81,10 +81,21 @@ public static class Configure
 
         services.AddSingleton<IResponseFactory, ResponseFactory>();
         services.AddSingleton<IGateway, Gateway>();
+        services.AddSingleton<IInertiaSerializer, DefaultInertiaSerializer>();
 
         services.Configure<MvcOptions>(mvcOptions => { mvcOptions.Filters.Add<InertiaActionFilter>(); });
 
         if (options != null) services.Configure(options);
+
+        return services;
+    }
+
+    public static IServiceCollection UseInertiaSerializer<TImplementation>(this IServiceCollection services)
+        where TImplementation : IInertiaSerializer
+    {
+        services.Replace(
+            new ServiceDescriptor(typeof(IInertiaSerializer), typeof(TImplementation), ServiceLifetime.Singleton)
+        );
 
         return services;
     }

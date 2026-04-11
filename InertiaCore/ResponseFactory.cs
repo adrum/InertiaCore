@@ -1,6 +1,4 @@
 using System.Net;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using InertiaCore.Models;
 using InertiaCore.Props;
 using InertiaCore.Ssr;
@@ -50,6 +48,7 @@ internal class ResponseFactory : IResponseFactory
 {
     private readonly IHttpContextAccessor _contextAccessor;
     private readonly IGateway _gateway;
+    private readonly IInertiaSerializer _serializer;
     private readonly IOptions<InertiaOptions> _options;
     private readonly IWebHostEnvironment _environment;
 
@@ -58,8 +57,9 @@ internal class ResponseFactory : IResponseFactory
     private bool? _encryptHistory;
     private Func<ActionContext, string>? _urlResolver;
 
-    public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IOptions<InertiaOptions> options, IWebHostEnvironment environment) =>
-        (_contextAccessor, _gateway, _options, _environment) = (contextAccessor, gateway, options, environment);
+    public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IInertiaSerializer serializer,
+        IOptions<InertiaOptions> options, IWebHostEnvironment environment)
+        => (_contextAccessor, _gateway, _serializer, _options, _environment) = (contextAccessor, gateway, serializer, options, environment);
 
     public Response Render(string component, object? props = null)
     {
@@ -76,7 +76,7 @@ internal class ResponseFactory : IResponseFactory
                 .ToDictionary(o => o.Name, o => o.GetValue(props))
         };
 
-        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _encryptHistory ?? _options.Value.EncryptHistory, _urlResolver);
+        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _encryptHistory ?? _options.Value.EncryptHistory, _serializer, _urlResolver);
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
@@ -110,13 +110,7 @@ internal class ResponseFactory : IResponseFactory
             }
         }
 
-        var data = JsonSerializer.Serialize(model,
-            new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            });
-
+        var data = _serializer.Serialize(model);
         var encoded = WebUtility.HtmlEncode(data);
 
         return new HtmlString($"<div id=\"app\" data-page=\"{encoded}\"></div>");
@@ -134,7 +128,9 @@ internal class ResponseFactory : IResponseFactory
     };
 
     public LocationResult Location(string url) => new(url);
-    public BackResult Back(string? fallbackUrl = null, HttpStatusCode statusCode = HttpStatusCode.SeeOther) => new(fallbackUrl, statusCode);
+
+    public BackResult Back(string? fallbackUrl = null, HttpStatusCode statusCode = HttpStatusCode.SeeOther) =>
+        new(fallbackUrl, statusCode);
 
     public void Share(string key, object? value)
     {

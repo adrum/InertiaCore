@@ -1,6 +1,7 @@
 using InertiaCore;
 using InertiaCore.Models;
 using InertiaCore.Ssr;
+using InertiaCore.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ public class UnitTestHistoryEncryption
         var factory = new ResponseFactory(
             new Mock<IHttpContextAccessor>().Object,
             new Mock<IGateway>().Object,
+            Mock.Of<IInertiaSerializer>(),
             Options.Create(options),
             environment.Object
         );

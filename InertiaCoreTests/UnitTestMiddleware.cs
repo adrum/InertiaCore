@@ -1,18 +1,13 @@
+using System.Net;
 using InertiaCore;
-using InertiaCore.Extensions;
+using InertiaCore.Models;
+using InertiaCore.Ssr;
 using InertiaCore.Utils;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Hosting;
 using Moq;
-using NUnit.Framework;
-using System.Net;
-using InertiaCore.Models;
-using InertiaCore.Ssr;
 
 namespace InertiaCoreTests;
 
@@ -24,6 +19,7 @@ public class UnitTestMiddleware
     private Mock<IServiceProvider> _serviceProviderMock = null!;
     private Mock<ITempDataDictionaryFactory> _tempDataFactoryMock = null!;
     private Mock<ITempDataDictionary> _tempDataMock = null!;
+    private Mock<IInertiaSerializer> _serializerMock = null!;
     private IResponseFactory _factory = null!;
 
     [SetUp]
@@ -33,6 +29,7 @@ public class UnitTestMiddleware
         _serviceProviderMock = new Mock<IServiceProvider>();
         _tempDataFactoryMock = new Mock<ITempDataDictionaryFactory>();
         _tempDataMock = new Mock<ITempDataDictionary>();
+        _serializerMock = new Mock<IInertiaSerializer>();
 
         _tempDataFactoryMock.Setup(f => f.GetTempData(It.IsAny<HttpContext>()))
             .Returns(_tempDataMock.Object);
@@ -49,8 +46,8 @@ public class UnitTestMiddleware
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
 
-        var gateway = new Gateway(httpClientFactory.Object, options.Object, environment.Object);
-        _factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, _serializerMock.Object, options.Object, environment.Object);
+        _factory = new ResponseFactory(contextAccessor.Object, gateway, _serializerMock.Object, options.Object, environment.Object);
         Inertia.UseFactory(_factory);
 
         _middleware = new Middleware(_nextMock.Object);
@@ -98,7 +95,7 @@ public class UnitTestMiddleware
     public async Task InvokeAsync_InertiaGetRequestWithSameVersion_CallsNext()
     {
         // Arrange
-        var version = "v1.0.0";
+        const string version = "v1.0.0";
         Inertia.Version(version);
         var context = CreateHttpContext(
             isInertia: true,
@@ -117,8 +114,8 @@ public class UnitTestMiddleware
     public async Task InvokeAsync_InertiaGetRequestWithDifferentVersion_ReturnsConflict()
     {
         // Arrange
-        var currentVersion = "v2.0.0";
-        var requestVersion = "v1.0.0";
+        const string currentVersion = "v2.0.0";
+        const string requestVersion = "v1.0.0";
         Inertia.Version(currentVersion);
 
         var context = CreateHttpContext(
@@ -144,8 +141,8 @@ public class UnitTestMiddleware
     public async Task InvokeAsync_VersionChangeWithTempData_KeepsTempData()
     {
         // Arrange
-        var currentVersion = "v2.0.0";
-        var requestVersion = "v1.0.0";
+        const string currentVersion = "v2.0.0";
+        const string requestVersion = "v1.0.0";
         Inertia.Version(currentVersion);
 
         var context = CreateHttpContext(
@@ -170,8 +167,8 @@ public class UnitTestMiddleware
     public async Task InvokeAsync_VersionChangeWithoutTempData_DoesNotKeepTempData()
     {
         // Arrange
-        var currentVersion = "v2.0.0";
-        var requestVersion = "v1.0.0";
+        const string currentVersion = "v2.0.0";
+        const string requestVersion = "v1.0.0";
         Inertia.Version(currentVersion);
 
         var context = CreateHttpContext(
@@ -220,6 +217,7 @@ public class UnitTestMiddleware
         {
             requestHeaders[InertiaHeader.Inertia] = "true";
         }
+
         if (version != null)
         {
             requestHeaders[InertiaHeader.Version] = version;

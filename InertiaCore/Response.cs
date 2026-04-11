@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using InertiaCore.Extensions;
 using InertiaCore.Models;
 using InertiaCore.Props;
@@ -20,13 +19,15 @@ public class Response : IActionResult
     private readonly string? _version;
     private readonly bool _encryptHistory;
     private readonly Func<ActionContext, string>? _urlResolver;
+    private readonly IInertiaSerializer _serializer;
 
     private ActionContext? _context;
     private Page? _page;
     private IDictionary<string, object>? _viewData;
 
-    internal Response(string component, Dictionary<string, object?> props, string rootView, string? version, bool encryptHistory, Func<ActionContext, string>? urlResolver = null)
-        => (_component, _props, _rootView, _version, _encryptHistory, _urlResolver) = (component, props, rootView, version, encryptHistory, urlResolver);
+    internal Response(string component, Dictionary<string, object?> props, string rootView, string? version,
+        bool encryptHistory, IInertiaSerializer serializer, Func<ActionContext, string>? urlResolver = null)
+        => (_component, _props, _rootView, _version, _encryptHistory, _serializer, _urlResolver) = (component, props, rootView, version, encryptHistory, serializer, urlResolver);
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -163,8 +164,23 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => onlyKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = new Dictionary<string, object?>();
+        foreach (var key in onlyKeys)
+        {
+            if (key.Contains('.'))
+            {
+                var value = DotNotationHelper.Get(props, key);
+                DotNotationHelper.Set(result, key, value);
+            }
+            else
+            {
+                var match = props.FirstOrDefault(kv =>
+                    string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (match.Key != null)
+                    result[match.Key] = match.Value;
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -178,8 +194,22 @@ public class Response : IActionResult
             .Where(k => !string.IsNullOrEmpty(k))
             .ToList();
 
-        return props.Where(kv => exceptKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase) == false)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var result = props.ToDictionary(kv => kv.Key, kv => kv.Value);
+        foreach (var key in exceptKeys)
+        {
+            if (key.Contains('.'))
+            {
+                DotNotationHelper.Forget(result, key);
+            }
+            else
+            {
+                var match = result.Keys.FirstOrDefault(k =>
+                    string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    result.Remove(match);
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -420,14 +450,9 @@ public class Response : IActionResult
     protected internal JsonResult GetJson()
     {
         _context!.HttpContext.Response.Headers.Override(InertiaHeader.Inertia, "true");
-        _context!.HttpContext.Response.Headers.Override("Vary", InertiaHeader.Inertia);
         _context!.HttpContext.Response.StatusCode = 200;
 
-        return new JsonResult(_page, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
-        });
+        return _serializer.SerializeResult(_page);
     }
 
     private ViewResult GetView()
@@ -466,20 +491,17 @@ public class Response : IActionResult
 
         // Then check TempData for stored validation errors
         var requestServices = _context!.HttpContext.RequestServices;
-        if (requestServices != null)
-        {
-            var tempDataFactory = requestServices.GetService<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataDictionaryFactory>();
-            if (tempDataFactory != null)
-            {
-                var tempData = tempDataFactory.GetTempData(_context!.HttpContext);
-                var storedErrors = tempData.GetAndClearValidationErrors(_context!.HttpContext.Request);
 
-                // Merge stored errors with current errors, converting keys to camelCase
-                foreach (var kvp in storedErrors)
-                {
-                    errors[kvp.Key.ToCamelCase()] = kvp.Value;
-                }
-            }
+        var tempDataFactory = requestServices.GetService<ITempDataDictionaryFactory>();
+        if (tempDataFactory == null) return errors;
+
+        var tempData = tempDataFactory.GetTempData(_context!.HttpContext);
+        var storedErrors = tempData.GetAndClearValidationErrors(_context!.HttpContext.Request);
+
+        // Merge stored errors with current errors, converting keys to camelCase
+        foreach (var kvp in storedErrors)
+        {
+            errors[kvp.Key.ToCamelCase()] = kvp.Value;
         }
 
         return errors;
@@ -520,7 +542,8 @@ public class Response : IActionResult
         {
             try
             {
-                errorBags = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(jsonString) ?? new Dictionary<string, Dictionary<string, string>>();
+                errorBags = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(jsonString) ??
+                            new Dictionary<string, Dictionary<string, string>>();
             }
             catch (JsonException)
             {
@@ -578,7 +601,7 @@ public class Response : IActionResult
     {
         if (!_context!.ModelState.IsValid)
             return _context!.ModelState.ToDictionary(o => o.Key.ToCamelCase(),
-                 o => o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? "");
+                o => o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? "");
 
         return new Dictionary<string, string>(0);
     }
