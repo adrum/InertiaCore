@@ -1,11 +1,10 @@
-using InertiaCore;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using System.Net;
+using InertiaCore.Extensions;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
-using InertiaCore.Extensions;
 
 namespace InertiaCore;
 
@@ -30,6 +29,14 @@ public class Middleware
 
         await _next(context);
 
+        // Convert 302 to 303 for PUT/PATCH/DELETE Inertia requests
+        if (context.IsInertiaRequest()
+            && context.Response.StatusCode == 302
+            && new[] { "PUT", "PATCH", "DELETE" }.Contains(context.Request.Method))
+        {
+            context.Response.StatusCode = 303;
+        }
+
         // Handle empty responses for Inertia requests
         if (context.IsInertiaRequest()
             && context.Response.StatusCode == 200
@@ -37,6 +44,7 @@ public class Middleware
         {
             await OnEmptyResponse(context);
         }
+
     }
 
     private static async Task OnVersionChange(HttpContext context)

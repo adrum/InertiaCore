@@ -104,7 +104,6 @@ internal class ResponseFactory : IResponseFactory
     };
 
     public LocationResult Location(string url) => new(url);
-    public BackResult Back(string? fallbackUrl = null, HttpStatusCode statusCode = HttpStatusCode.SeeOther) => new(fallbackUrl, statusCode);
 
     public BackResult Back(string? fallbackUrl = null, HttpStatusCode statusCode = HttpStatusCode.SeeOther) =>
         new(fallbackUrl, statusCode);

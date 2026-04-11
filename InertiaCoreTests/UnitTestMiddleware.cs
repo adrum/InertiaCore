@@ -42,11 +42,12 @@ public class UnitTestMiddleware
         // Set up Inertia factory
         var contextAccessor = new Mock<IHttpContextAccessor>();
         var httpClientFactory = new Mock<IHttpClientFactory>();
-        var gateway = new Gateway(httpClientFactory.Object);
+        var serializer = new Mock<IInertiaSerializer>();
+        var gateway = new Gateway(httpClientFactory.Object, serializer.Object);
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
 
-        _factory = new ResponseFactory(contextAccessor.Object, gateway, options.Object);
+        _factory = new ResponseFactory(contextAccessor.Object, gateway, serializer.Object, options.Object);
         Inertia.UseFactory(_factory);
 
         _middleware = new Middleware(_nextMock.Object);
