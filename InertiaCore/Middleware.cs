@@ -27,7 +27,18 @@ public class Middleware
             return;
         }
 
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["Vary"] = InertiaHeader.Inertia;
+            return Task.CompletedTask;
+        });
+
         await _next(context);
+
+        if (!context.Response.HasStarted)
+        {
+            context.Response.Headers["Vary"] = InertiaHeader.Inertia;
+        }
 
         // Convert 302 to 303 for PUT/PATCH/DELETE Inertia requests
         if (context.IsInertiaRequest()

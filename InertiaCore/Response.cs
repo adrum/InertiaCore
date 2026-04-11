@@ -199,7 +199,6 @@ public class Response : IActionResult
     protected internal JsonResult GetJson()
     {
         _context!.HttpContext.Response.Headers.Override(InertiaHeader.Inertia, "true");
-        _context!.HttpContext.Response.Headers.Override("Vary", "Accept");
         _context!.HttpContext.Response.StatusCode = 200;
 
         return _serializer.SerializeResult(_page);
