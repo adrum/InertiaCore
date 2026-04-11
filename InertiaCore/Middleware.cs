@@ -37,6 +37,21 @@ public class Middleware
             context.Response.StatusCode = 303;
         }
 
+        // Reflash TempData on redirect responses
+        if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)
+        {
+            try
+            {
+                var tempData = context.RequestServices.GetRequiredService<ITempDataDictionaryFactory>()
+                    .GetTempData(context);
+                if (tempData.Any()) tempData.Keep();
+            }
+            catch
+            {
+                // TempData services not available
+            }
+        }
+
         // Handle empty responses for Inertia requests
         if (context.IsInertiaRequest()
             && context.Response.StatusCode == 200
