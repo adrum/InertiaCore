@@ -1,4 +1,5 @@
 using System.Net;
+using InertiaCore.Extensions;
 using InertiaCore.Models;
 using InertiaCore.Props;
 using InertiaCore.Ssr;
@@ -22,6 +23,7 @@ internal interface IResponseFactory
     public void Share(string key, object? value);
     public void Share(IDictionary<string, object?> data);
     public void FlushShared();
+    public object? GetShared(string? key = null, object? defaultValue = null);
     public AlwaysProp Always(object? value);
     public AlwaysProp Always(Func<object?> callback);
     public AlwaysProp Always(Func<Task<object?>> callback);
@@ -139,6 +141,33 @@ internal class ResponseFactory : IResponseFactory
         {
             sharedData.Clear();
         }
+    }
+
+    public object? GetShared(string? key = null, object? defaultValue = null)
+    {
+        var context = _contextAccessor.HttpContext!;
+
+        var sharedData = context.Features.Get<InertiaSharedProps>();
+
+        if (key == null)
+        {
+            return sharedData?.GetAll() ?? new Dictionary<string, object?>();
+        }
+
+        if (sharedData == null)
+        {
+            return defaultValue;
+        }
+
+        if (!key.Contains('.'))
+        {
+            return sharedData.TryGet(key, out var value) ? value : defaultValue;
+        }
+
+        var normalizedKey = string.Join('.', key.Split('.').Select(segment => segment.ToCamelCase()));
+        var all = new Dictionary<string, object?>(sharedData.GetAll());
+        var nested = DotNotationHelper.Get(all, normalizedKey);
+        return nested ?? defaultValue;
     }
 
     public LazyProp Lazy(Func<object?> callback) => new(callback);
