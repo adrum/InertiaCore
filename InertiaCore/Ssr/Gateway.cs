@@ -26,12 +26,24 @@ internal class Gateway : IGateway
 
     public async Task<SsrResponse?> Dispatch(dynamic model, string url)
     {
-        var json = _serializer.Serialize(model);
-        var content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
+        try
+        {
+            var json = _serializer.Serialize(model);
+            var content = new StringContent(json.ToString(), Encoding.UTF8, "application/json");
 
-        var client = _httpClientFactory.CreateClient();
-        var response = await client.PostAsync(url, content);
-        return await response.Content.ReadFromJsonAsync<SsrResponse>();
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.PostAsync(url, content);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<SsrResponse>();
+        }
+        catch (Exception) when (!_options.Value.SsrThrowOnError)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            throw new SsrException($"Inertia SSR dispatch to {url} failed: {ex.Message}", ex);
+        }
     }
 
     public bool ShouldDispatch()

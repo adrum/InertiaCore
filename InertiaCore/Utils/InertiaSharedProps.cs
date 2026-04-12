@@ -31,4 +31,22 @@ internal class InertiaSharedProps
     {
         Data = null;
     }
+
+    public IReadOnlyDictionary<string, object?> GetAll()
+    {
+        return Data != null
+            ? new Dictionary<string, object?>(Data)
+            : new Dictionary<string, object?>();
+    }
+
+    public bool TryGet(string key, out object? value)
+    {
+        if (Data != null && Data.TryGetValue(key.ToCamelCase(), out value))
+        {
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
 }

@@ -1,4 +1,5 @@
 using System.Net;
+using InertiaCore.Extensions;
 using InertiaCore.Models;
 using InertiaCore.Props;
 using InertiaCore.Ssr;
@@ -26,6 +27,7 @@ internal interface IResponseFactory
     public void Share(string key, object? value);
     public void Share(IDictionary<string, object?> data);
     public void FlushShared();
+    public object? GetShared(string? key = null, object? defaultValue = null);
     public void ClearHistory(bool clear = true);
     public void EncryptHistory(bool encrypt = true);
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver);
@@ -83,7 +85,8 @@ internal class ResponseFactory : IResponseFactory
                 .ToDictionary(o => o.Name, o => o.GetValue(props))
         };
 
-        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver);
+        return new Response(component, dictProps, _options.Value.RootView, GetVersion(),
+            GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver, _options.Value.WithAllErrors);
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
@@ -170,6 +173,33 @@ internal class ResponseFactory : IResponseFactory
         {
             sharedData.Clear();
         }
+    }
+
+    public object? GetShared(string? key = null, object? defaultValue = null)
+    {
+        var context = _contextAccessor.HttpContext!;
+
+        var sharedData = context.Features.Get<InertiaSharedProps>();
+
+        if (key == null)
+        {
+            return sharedData?.GetAll() ?? new Dictionary<string, object?>();
+        }
+
+        if (sharedData == null)
+        {
+            return defaultValue;
+        }
+
+        if (!key.Contains('.'))
+        {
+            return sharedData.TryGet(key, out var value) ? value : defaultValue;
+        }
+
+        var normalizedKey = string.Join('.', key.Split('.').Select(segment => segment.ToCamelCase()));
+        var all = new Dictionary<string, object?>(sharedData.GetAll());
+        var nested = DotNotationHelper.Get(all, normalizedKey);
+        return nested ?? defaultValue;
     }
 
     public void ClearHistory(bool clear = true)

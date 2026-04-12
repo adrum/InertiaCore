@@ -21,6 +21,7 @@ public class Response : IActionResult
     private readonly bool _clearHistory;
     private readonly Func<ActionContext, string>? _urlResolver;
     private readonly IInertiaSerializer _serializer;
+    private readonly bool _withAllErrors;
 
     private ActionContext? _context;
     private Page? _page;
@@ -28,8 +29,10 @@ public class Response : IActionResult
     private List<int> _cacheFor = new();
 
     internal Response(string component, Dictionary<string, object?> props, string rootView, string? version,
-        bool encryptHistory, bool clearHistory, IInertiaSerializer serializer, Func<ActionContext, string>? urlResolver = null)
-        => (_component, _props, _rootView, _version, _encryptHistory, _clearHistory, _serializer, _urlResolver) = (component, props, rootView, version, encryptHistory, clearHistory, serializer, urlResolver);
+        bool encryptHistory, bool clearHistory, IInertiaSerializer serializer,
+        Func<ActionContext, string>? urlResolver = null, bool withAllErrors = false)
+        => (_component, _props, _rootView, _version, _encryptHistory, _clearHistory, _serializer, _urlResolver, _withAllErrors) =
+            (component, props, rootView, version, encryptHistory, clearHistory, serializer, urlResolver, withAllErrors);
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -552,9 +555,9 @@ public class Response : IActionResult
 
     protected internal IActionResult GetResult() => _context!.IsInertiaRequest() ? GetJson() : GetView();
 
-    private Dictionary<string, string> GetErrors()
+    private Dictionary<string, object> GetErrors()
     {
-        var errors = new Dictionary<string, string>();
+        var errors = new Dictionary<string, object>();
 
         // First check current ModelState
         if (!_context!.ModelState.IsValid)
@@ -660,8 +663,9 @@ public class Response : IActionResult
             return new Dictionary<string, object> { [requestedErrorBag] = processedBags["default"] };
         }
 
-        // Laravel's logic: If there's only default bag, return its contents directly
-        if (processedBags.ContainsKey("default") && processedBags.Count == 1)
+        // Laravel's logic: If a default bag exists, return its contents directly
+        // (mirrors Laravel's Middleware::resolveValidationErrors pipe)
+        if (processedBags.ContainsKey("default"))
         {
             return processedBags["default"];
         }
@@ -677,13 +681,15 @@ public class Response : IActionResult
     /// Get only current ModelState errors (not TempData)
     /// Matches the original GetErrors() logic exactly
     /// </summary>
-    private Dictionary<string, string> GetCurrentModelStateErrors()
+    private Dictionary<string, object> GetCurrentModelStateErrors()
     {
         if (!_context!.ModelState.IsValid)
             return _context!.ModelState.ToDictionary(o => o.Key.ToCamelCase(),
-                o => o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? "");
+                o => _withAllErrors
+                    ? (object)(o.Value?.Errors.Select(e => e.ErrorMessage).ToArray() ?? Array.Empty<string>())
+                    : (object)(o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? ""));
 
-        return new Dictionary<string, string>(0);
+        return new Dictionary<string, object>(0);
     }
 
 

@@ -40,6 +40,9 @@ public static class Inertia
 
     public static void FlushShared() => _factory.FlushShared();
 
+    public static object? GetShared(string? key = null, object? defaultValue = null) =>
+        _factory.GetShared(key, defaultValue);
+
     public static void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _factory.ResolveUrlUsing(urlResolver);
 
     public static void ClearHistory(bool clear = true) => _factory.ClearHistory(clear);
