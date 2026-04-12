@@ -19,6 +19,8 @@ public static class Inertia
 
     public static Response Render(string component, object? props = null) => _factory.Render(component, props);
 
+    public static Response Render(Enum component, object? props = null) => _factory.Render(component, props);
+
     public static Task<IHtmlContent> Head(dynamic model) => _factory.Head(model);
 
     public static Task<IHtmlContent> Html(dynamic model, string id = "app") => _factory.Html(model, id);
