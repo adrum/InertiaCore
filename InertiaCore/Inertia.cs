@@ -54,6 +54,14 @@ public static class Inertia
 
     public static void EncryptHistory(bool encrypt = true) => _factory.EncryptHistory(encrypt);
 
+    public static void DisableSsr(bool condition = true) => _factory.DisableSsr(condition);
+
+    public static void DisableSsr(Func<bool> condition) => _factory.DisableSsr(condition);
+
+    public static void WithoutSsr(params string[] paths) => _factory.WithoutSsr(paths);
+
+    public static void WithoutSsr(IEnumerable<string> paths) => _factory.WithoutSsr(paths);
+
     public static AlwaysProp Always(string value) => _factory.Always(value);
 
     public static AlwaysProp Always(Func<string> callback) => _factory.Always(callback);

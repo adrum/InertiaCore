@@ -30,7 +30,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
 
-        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
         var factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
         Inertia.UseFactory(factory);
 
@@ -65,7 +65,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
 
-        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
         var factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
 
         // Simulate request 1: encrypt history enabled

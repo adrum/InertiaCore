@@ -21,7 +21,7 @@ public class UnitTestMiddleware303Redirect
         environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
-        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         var factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
         Inertia.UseFactory(factory);

@@ -115,7 +115,7 @@ public partial class Tests
                 PageExtensions = new[] { ".vue" }
             });
 
-            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+            var gateway = new Gateway(httpClientFactory.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
             var factory = new ResponseFactory(contextAccessor.Object, gateway, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
 
             // Without a transformer, rendering "Home" should fail (no pages/Home.vue exists).

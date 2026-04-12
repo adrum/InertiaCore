@@ -4,6 +4,7 @@ using InertiaCore.Models;
 using InertiaCore.Ssr;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
@@ -38,7 +39,7 @@ public partial class Tests
         var environment = new Mock<IWebHostEnvironment>();
         environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
 
-        return new Gateway(clientFactory.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
+        return new Gateway(clientFactory.Object, new DefaultInertiaSerializer(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
     }
 
     [Test]

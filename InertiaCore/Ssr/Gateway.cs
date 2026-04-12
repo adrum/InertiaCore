@@ -1,8 +1,10 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using InertiaCore.Models;
 using InertiaCore.Utils;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Hosting;
 
@@ -21,18 +23,62 @@ internal interface IGateway : IHasHealthCheck
     event EventHandler<SsrRenderFailed>? RenderFailed;
 }
 
-internal class Gateway : IGateway
+internal class Gateway : IGateway, IDisablesSsr, IExcludesSsrPaths
 {
+    internal const string DisabledKey = "inertia.ssr_disabled";
+    internal const string ExcludedPathsKey = "inertia.ssr_excluded_paths";
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IInertiaSerializer _serializer;
     private readonly IOptions<InertiaOptions> _options;
     private readonly IWebHostEnvironment _environment;
+    private readonly IHttpContextAccessor _contextAccessor;
 
     public event EventHandler<SsrRenderFailed>? RenderFailed;
 
     public Gateway(IHttpClientFactory httpClientFactory, IInertiaSerializer serializer,
-        IOptions<InertiaOptions> options, IWebHostEnvironment environment)
-        => (_httpClientFactory, _serializer, _options, _environment) = (httpClientFactory, serializer, options, environment);
+        IOptions<InertiaOptions> options, IWebHostEnvironment environment,
+        IHttpContextAccessor contextAccessor)
+        => (_httpClientFactory, _serializer, _options, _environment, _contextAccessor)
+            = (httpClientFactory, serializer, options, environment, contextAccessor);
+
+    public void Disable(bool condition = true)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context == null) return;
+        context.Items[DisabledKey] = condition;
+    }
+
+    public void Disable(Func<bool> condition)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context == null) return;
+        context.Items[DisabledKey] = condition;
+    }
+
+    public void Except(params string[] paths) => Except((IEnumerable<string>)paths);
+
+    public void Except(IEnumerable<string> paths)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context == null) return;
+
+        List<string> list;
+        if (context.Items.TryGetValue(ExcludedPathsKey, out var existing) && existing is List<string> existingList)
+        {
+            list = existingList;
+        }
+        else
+        {
+            list = new List<string>();
+            context.Items[ExcludedPathsKey] = list;
+        }
+
+        foreach (var p in paths)
+        {
+            if (!string.IsNullOrEmpty(p)) list.Add(p);
+        }
+    }
 
     public async Task<SsrResponse?> Dispatch(dynamic model, string url)
     {
@@ -155,7 +201,50 @@ internal class Gateway : IGateway
 
     public bool ShouldDispatch()
     {
+        if (IsDisabledForRequest()) return false;
         return !_options.Value.SsrEnsureBundleExists || BundleExists();
+    }
+
+    private bool IsDisabledForRequest()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context == null) return false;
+
+        if (context.Items.TryGetValue(DisabledKey, out var disabledValue))
+        {
+            switch (disabledValue)
+            {
+                case bool b when b:
+                    return true;
+                case Func<bool> closure when closure():
+                    return true;
+            }
+        }
+
+        if (context.Items.TryGetValue(ExcludedPathsKey, out var pathsValue)
+            && pathsValue is IReadOnlyList<string> paths
+            && paths.Count > 0)
+        {
+            var requestPath = (context.Request.Path.Value ?? string.Empty).TrimStart('/');
+            foreach (var pattern in paths)
+            {
+                if (PathMatches(pattern, requestPath)) return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PathMatches(string pattern, string path)
+    {
+        // Mirror Laravel's Str::is(): glob-style * wildcards that match any
+        // sequence (including slashes). Both ends are anchored. Leading
+        // slashes have already been stripped from both pattern and path.
+        var normalizedPattern = pattern.TrimStart('/');
+        if (normalizedPattern == path) return true;
+
+        var regex = "^" + Regex.Escape(normalizedPattern).Replace("\\*", ".*") + "$";
+        return Regex.IsMatch(path, regex);
     }
 
     private bool BundleExists()

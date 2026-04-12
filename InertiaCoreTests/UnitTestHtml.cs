@@ -32,7 +32,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(inertiaOptions);
 
-        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
         return new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
     }
 

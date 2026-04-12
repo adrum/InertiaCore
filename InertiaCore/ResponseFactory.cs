@@ -31,6 +31,10 @@ internal interface IResponseFactory
     public object? GetShared(string? key = null, object? defaultValue = null);
     public void ClearHistory(bool clear = true);
     public void EncryptHistory(bool encrypt = true);
+    public void DisableSsr(bool condition = true);
+    public void DisableSsr(Func<bool> condition);
+    public void WithoutSsr(params string[] paths);
+    public void WithoutSsr(IEnumerable<string> paths);
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver);
     public AlwaysProp Always(object? value);
     public AlwaysProp Always(Func<object?> callback);
@@ -259,6 +263,26 @@ internal class ResponseFactory : IResponseFactory
         if (context?.Items.TryGetValue("inertia.encrypt_history", out var value) == true && value is bool encrypt)
             return encrypt;
         return _options.Value.EncryptHistory;
+    }
+
+    public void DisableSsr(bool condition = true)
+    {
+        if (_gateway is IDisablesSsr disablable) disablable.Disable(condition);
+    }
+
+    public void DisableSsr(Func<bool> condition)
+    {
+        if (_gateway is IDisablesSsr disablable) disablable.Disable(condition);
+    }
+
+    public void WithoutSsr(params string[] paths)
+    {
+        if (_gateway is IExcludesSsrPaths excludable) excludable.Except(paths);
+    }
+
+    public void WithoutSsr(IEnumerable<string> paths)
+    {
+        if (_gateway is IExcludesSsrPaths excludable) excludable.Except(paths);
     }
 
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _urlResolver = urlResolver;
