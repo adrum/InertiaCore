@@ -54,6 +54,8 @@ public static class Inertia
 
     public static void EncryptHistory(bool encrypt = true) => _factory.EncryptHistory(encrypt);
 
+    public static void PreserveFragment(bool preserve = true) => _factory.PreserveFragment(preserve);
+
     public static void DisableSsr(bool condition = true) => _factory.DisableSsr(condition);
 
     public static void DisableSsr(Func<bool> condition) => _factory.DisableSsr(condition);

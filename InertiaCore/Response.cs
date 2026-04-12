@@ -19,6 +19,7 @@ public class Response : IActionResult
     private readonly string? _version;
     private readonly bool _encryptHistory;
     private readonly bool _clearHistory;
+    private readonly bool _preserveFragment;
     private readonly Func<ActionContext, string>? _urlResolver;
     private readonly IInertiaSerializer _serializer;
     private readonly bool _withAllErrors;
@@ -30,9 +31,9 @@ public class Response : IActionResult
 
     internal Response(string component, Dictionary<string, object?> props, string rootView, string? version,
         bool encryptHistory, bool clearHistory, IInertiaSerializer serializer,
-        Func<ActionContext, string>? urlResolver = null, bool withAllErrors = false)
-        => (_component, _props, _rootView, _version, _encryptHistory, _clearHistory, _serializer, _urlResolver, _withAllErrors) =
-            (component, props, rootView, version, encryptHistory, clearHistory, serializer, urlResolver, withAllErrors);
+        Func<ActionContext, string>? urlResolver = null, bool withAllErrors = false, bool preserveFragment = false)
+        => (_component, _props, _rootView, _version, _encryptHistory, _clearHistory, _serializer, _urlResolver, _withAllErrors, _preserveFragment) =
+            (component, props, rootView, version, encryptHistory, clearHistory, serializer, urlResolver, withAllErrors, preserveFragment);
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -59,6 +60,7 @@ public class Response : IActionResult
             Props = resolvedProps,
             EncryptHistory = _encryptHistory,
             ClearHistory = _clearHistory,
+            PreserveFragment = _preserveFragment ? true : null,
             SharedProps = metadata.SharedProps,
             MergeProps = metadata.MergeProps,
             PrependProps = metadata.PrependProps,
