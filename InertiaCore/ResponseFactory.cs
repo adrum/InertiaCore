@@ -52,6 +52,7 @@ internal interface IResponseFactory
     public void Flash(string key, object? value);
     public void Flash(IDictionary<string, object?> data);
     public Dictionary<string, object?> GetFlashed();
+    public Dictionary<string, object?> PullFlashed();
     public OnceProp Once(Func<object?> callback);
     public OnceProp Once(Func<Task<object?>> callback);
     public OnceProp ShareOnce(string key, Func<object?> callback);
@@ -341,6 +342,31 @@ internal class ResponseFactory : IResponseFactory
             }
         }
         catch { }
+
+        return flash;
+    }
+
+    public Dictionary<string, object?> PullFlashed()
+    {
+        var flash = GetFlashed();
+
+        var context = _contextAccessor.HttpContext!;
+        context.Items.Remove(FlashDataKey);
+
+        try
+        {
+            var tempDataFactory = context.RequestServices?.GetService<ITempDataDictionaryFactory>();
+            if (tempDataFactory != null)
+            {
+                var tempData = tempDataFactory.GetTempData(context);
+                if (tempData.ContainsKey(FlashDataKey))
+                {
+                    tempData.Remove(FlashDataKey);
+                    tempData.Save();
+                }
+            }
+        }
+        catch { /* TempData services not available */ }
 
         return flash;
     }
