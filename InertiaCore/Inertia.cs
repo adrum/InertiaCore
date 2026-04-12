@@ -44,4 +44,8 @@ public static class Inertia
     public static OnceProp Once(Func<object?> callback) => _factory.Once(callback);
 
     public static OnceProp Once(Func<Task<object?>> callback) => _factory.Once(callback);
+
+    public static OnceProp ShareOnce(string key, Func<object?> callback) => _factory.ShareOnce(key, callback);
+
+    public static OnceProp ShareOnce(string key, Func<Task<object?>> callback) => _factory.ShareOnce(key, callback);
 }

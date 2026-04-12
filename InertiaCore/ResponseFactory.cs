@@ -31,6 +31,8 @@ internal interface IResponseFactory
     public LazyProp Lazy(Func<Task<object?>> callback);
     public OnceProp Once(Func<object?> callback);
     public OnceProp Once(Func<Task<object?>> callback);
+    public OnceProp ShareOnce(string key, Func<object?> callback);
+    public OnceProp ShareOnce(string key, Func<Task<object?>> callback);
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -148,4 +150,18 @@ internal class ResponseFactory : IResponseFactory
     public AlwaysProp Always(Func<Task<object?>> callback) => new(callback);
     public OnceProp Once(Func<object?> callback) => new(callback);
     public OnceProp Once(Func<Task<object?>> callback) => new(callback);
+
+    public OnceProp ShareOnce(string key, Func<object?> callback)
+    {
+        var prop = Once(callback);
+        Share(key, prop);
+        return prop;
+    }
+
+    public OnceProp ShareOnce(string key, Func<Task<object?>> callback)
+    {
+        var prop = Once(callback);
+        Share(key, prop);
+        return prop;
+    }
 }
