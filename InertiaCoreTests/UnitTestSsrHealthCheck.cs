@@ -3,6 +3,7 @@ using InertiaCore.Models;
 using InertiaCore.Ssr;
 using InertiaCore.Utils;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
@@ -31,7 +32,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrUrl = "http://localhost:13714" });
 
-        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         var result = await gateway.IsHealthy();
 
@@ -66,7 +67,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrUrl = "http://localhost:13714" });
 
-        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         var result = await gateway.IsHealthy();
 
@@ -93,7 +94,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrUrl = "http://localhost:13714" });
 
-        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         var result = await gateway.IsHealthy();
 
@@ -120,7 +121,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrUrl = "http://localhost:13714/" });
 
-        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         await gateway.IsHealthy();
 
@@ -154,7 +155,7 @@ public partial class Tests
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions { SsrUrl = "http://127.0.0.1:8080/ssr" });
 
-        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object);
+        var gateway = new Gateway(httpClientFactoryMock.Object, Mock.Of<IInertiaSerializer>(), options.Object, environment.Object, Mock.Of<IHttpContextAccessor>());
 
         await gateway.IsHealthy();
 
