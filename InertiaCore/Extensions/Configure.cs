@@ -40,6 +40,74 @@ public static class Configure
         return app;
     }
 
+    /// <summary>
+    /// Register a pipeline stage that catches unhandled exceptions from
+    /// downstream middleware and, for Inertia requests, hands them to the
+    /// callback registered via <see cref="Inertia.HandleExceptionsUsing"/>.
+    /// If the callback configures a component via
+    /// <c>response.Render(...)</c>, the corresponding Inertia page is written
+    /// to the response. Otherwise the exception is re-thrown so the default
+    /// ASP.NET Core exception handler can take over.
+    /// <para>
+    /// Register this early in the pipeline (before any middleware that writes
+    /// to the response body) so the exception handler still has a clean
+    /// response to write into. If <c>UseInertiaExceptionHandler</c> is placed
+    /// after response buffering begins, the rendered error page may fail to
+    /// serialize cleanly.
+    /// </para>
+    /// </summary>
+    /// <param name="app">The application builder.</param>
+    /// <param name="handler">
+    /// Optional inline callback. If supplied, this is a shortcut for calling
+    /// <see cref="Inertia.HandleExceptionsUsing"/> during pipeline configuration.
+    /// </param>
+    public static IApplicationBuilder UseInertiaExceptionHandler(this IApplicationBuilder app,
+        Action<ExceptionResponse>? handler = null)
+    {
+        if (handler != null)
+        {
+            var factory = app.ApplicationServices.GetRequiredService<IResponseFactory>();
+            factory.HandleExceptionsUsing(handler);
+        }
+
+        return app.Use(async (context, next) =>
+        {
+            try
+            {
+                await next(context);
+            }
+            catch (Exception ex)
+            {
+                if (!context.IsInertiaRequest())
+                {
+                    throw;
+                }
+
+                var factory = context.RequestServices.GetRequiredService<IResponseFactory>();
+                var callback = factory.GetExceptionHandler();
+                if (callback == null)
+                {
+                    throw;
+                }
+
+                if (context.Response.HasStarted)
+                {
+                    throw;
+                }
+
+                var exceptionResponse = new ExceptionResponse(ex, context);
+                callback(exceptionResponse);
+
+                if (!exceptionResponse.HasComponent)
+                {
+                    throw;
+                }
+
+                await exceptionResponse.ExecuteAsync(factory);
+            }
+        });
+    }
+
     private static void CheckTempDataAvailability(IApplicationBuilder app)
     {
         // Skip warning in test environments

@@ -55,6 +55,8 @@ internal interface IResponseFactory
     public OnceProp Once(Func<Task<object?>> callback);
     public OnceProp ShareOnce(string key, Func<object?> callback);
     public OnceProp ShareOnce(string key, Func<Task<object?>> callback);
+    public void HandleExceptionsUsing(Action<ExceptionResponse>? handler);
+    public Action<ExceptionResponse>? GetExceptionHandler();
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -67,6 +69,7 @@ internal class ResponseFactory : IResponseFactory
 
     private object? _version;
     private Func<ActionContext, string>? _urlResolver;
+    private Action<ExceptionResponse>? _exceptionHandler;
 
     public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IInertiaSerializer serializer,
         IOptions<InertiaOptions> options, IWebHostEnvironment environment)
@@ -250,6 +253,10 @@ internal class ResponseFactory : IResponseFactory
     }
 
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _urlResolver = urlResolver;
+
+    public void HandleExceptionsUsing(Action<ExceptionResponse>? handler) => _exceptionHandler = handler;
+
+    public Action<ExceptionResponse>? GetExceptionHandler() => _exceptionHandler;
 
     public LazyProp Lazy(Func<object?> callback) => new(callback);
     public LazyProp Lazy(Func<Task<object?>> callback) => new(callback);
