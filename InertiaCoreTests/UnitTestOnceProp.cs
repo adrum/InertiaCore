@@ -134,10 +134,10 @@ public partial class Tests
         var page = response.GetJson().Value as Page;
 
         Assert.That(page?.OnceProps, Is.Not.Null);
-        Assert.That(page?.OnceProps, Does.ContainKey("TestOnce"));
+        Assert.That(page?.OnceProps, Does.ContainKey("testOnce"));
 
-        var metadata = page?.OnceProps!["TestOnce"] as Dictionary<string, object?>;
+        var metadata = page?.OnceProps!["testOnce"] as Dictionary<string, object?>;
         Assert.That(metadata, Is.Not.Null);
-        Assert.That(metadata!["prop"], Is.EqualTo("TestOnce"));
+        Assert.That(metadata!["prop"], Is.EqualTo("testOnce"));
     }
 }

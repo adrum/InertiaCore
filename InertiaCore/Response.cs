@@ -35,7 +35,21 @@ public class Response : IActionResult
 
     protected internal async Task ProcessResponse()
     {
-        var props = await ResolveProperties();
+        var props = _props;
+
+        props = ResolveSharedProps(props);
+        props = ResolvePartialProperties(props);
+        props = ResolveOnceProperties(props);
+        props = ResolveAlways(props);
+
+        // Build the once-props metadata from the merged dictionary BEFORE the
+        // IOnceable instances are replaced with their resolved values below.
+        // This ensures shared once props (registered via Share()/ShareOnce())
+        // are included in the metadata, matching the behavior of the Laravel
+        // adapter's resolveOnceProps().
+        var onceProps = ResolveOnceProps(props);
+
+        props = await ResolvePropertyInstances(props);
 
         var page = new Page
         {
@@ -45,28 +59,12 @@ public class Response : IActionResult
             Props = props,
             EncryptHistory = _encryptHistory,
             ClearHistory = _clearHistory,
+            OnceProps = onceProps,
         };
 
-        page.OnceProps = ResolveOnceProps(props);
         page.Props["errors"] = GetErrors();
 
         SetPage(page);
-    }
-
-    /// <summary>
-    /// Resolve the properties for the response.
-    /// </summary>
-    private async Task<Dictionary<string, object?>> ResolveProperties()
-    {
-        var props = _props;
-
-        props = ResolveSharedProps(props);
-        props = ResolvePartialProperties(props);
-        props = ResolveOnceProperties(props);
-        props = ResolveAlways(props);
-        props = await ResolvePropertyInstances(props);
-
-        return props;
     }
 
     /// <summary>
@@ -184,14 +182,14 @@ public class Response : IActionResult
                 .ToString().Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim()), StringComparer.OrdinalIgnoreCase);
 
-        var onceProps = _props
+        var onceProps = props
             .Where(kv => kv.Value is IOnceable onceable && onceable.ShouldResolveOnce())
             .Where(kv => onlyProps.Count == 0 || onlyProps.Contains(kv.Key))
             .Where(kv => !exceptProps.Contains(kv.Key))
             .ToDictionary(
-                kv => ((IOnceable)kv.Value!).GetOnceKey() ?? kv.Key,
+                kv => ((IOnceable)kv.Value!).GetOnceKey() ?? kv.Key.ToCamelCase(),
                 kv => (object)new Dictionary<string, object?> {
-                    { "prop", kv.Key },
+                    { "prop", kv.Key.ToCamelCase() },
                     { "expiresAt", ((IOnceable)kv.Value!).ExpiresAt() }
                 });
 

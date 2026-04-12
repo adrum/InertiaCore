@@ -94,6 +94,42 @@ public partial class Tests
         Assert.That(page?.Props, Does.ContainKey("test"));
         Assert.That(page?.Props, Does.ContainKey("sharedOnceUser"));
         Assert.That(page?.Props!["sharedOnceUser"], Is.EqualTo("Alice"));
+
+        // The shared once prop must also contribute metadata to page.OnceProps
+        // so the client learns it's a once prop and honors the once semantics.
+        Assert.That(page?.OnceProps, Is.Not.Null);
+        Assert.That(page?.OnceProps, Does.ContainKey("sharedOnceUser"));
+
+        var metadata = page?.OnceProps!["sharedOnceUser"] as Dictionary<string, object?>;
+        Assert.That(metadata, Is.Not.Null);
+        Assert.That(metadata!["prop"], Is.EqualTo("sharedOnceUser"));
+        Assert.That(metadata, Does.ContainKey("expiresAt"));
+    }
+
+    [Test]
+    [Description("Test that a once prop registered via Share(key, Inertia.Once()) is included in page.OnceProps metadata.")]
+    public async Task TestSharedOncePropViaShareContributesOnceMetadata()
+    {
+        var (factory, context) = BuildFactoryWithContext();
+
+        factory.Share("manual", factory.Once(() => "value"));
+
+        var response = factory.Render("Test/Page", new { Test = "Test" });
+
+        response.SetContext(context);
+        await response.ProcessResponse();
+
+        var page = response.GetJson().Value as Page;
+
+        Assert.That(page?.Props, Does.ContainKey("manual"));
+        Assert.That(page?.Props!["manual"], Is.EqualTo("value"));
+
+        Assert.That(page?.OnceProps, Is.Not.Null);
+        Assert.That(page?.OnceProps, Does.ContainKey("manual"));
+
+        var metadata = page?.OnceProps!["manual"] as Dictionary<string, object?>;
+        Assert.That(metadata, Is.Not.Null);
+        Assert.That(metadata!["prop"], Is.EqualTo("manual"));
     }
 
     [Test]
