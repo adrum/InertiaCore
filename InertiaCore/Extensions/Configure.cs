@@ -33,6 +33,13 @@ public static class Configure
         return app;
     }
 
+    /// <summary>Globally enable Inertia history encryption for all routes.</summary>
+    public static IApplicationBuilder UseInertiaEncryptHistory(this IApplicationBuilder app)
+    {
+        app.UseMiddleware<EncryptHistoryMiddleware>();
+        return app;
+    }
+
     private static void CheckTempDataAvailability(IApplicationBuilder app)
     {
         // Skip warning in test environments
