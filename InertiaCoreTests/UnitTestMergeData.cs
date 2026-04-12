@@ -466,4 +466,32 @@ public partial class Tests
         Assert.That(page?.MatchPropsOn, Is.EqualTo(null));
     }
 
+    [Test]
+    [Description("Test if merge props honor the X-Inertia-Reset header.")]
+    public async Task TestMergePropsWithResetHeader()
+    {
+        var response = _factory.Render("Test/Page", new
+        {
+            TestMerge1 = _factory.Merge("Merge1"),
+            TestMerge2 = _factory.Merge(() => "Merge2"),
+        });
+
+        var headers = new HeaderDictionary
+        {
+            { "X-Inertia-Reset", "TestMerge1" },
+            { "X-Inertia-Partial-Data", "testMerge1,testMerge2" },
+            { "X-Inertia-Partial-Component", "Test/Page" }
+        };
+
+        var context = PrepareContext(headers);
+
+        response.SetContext(context);
+        await response.ProcessResponse();
+
+        var page = response.GetJson().Value as Page;
+
+        // testMerge1 should NOT appear in mergeProps because it's in the reset list
+        Assert.That(page?.MergeProps, Is.EqualTo(new List<string> { "testMerge2" }));
+    }
+
 }

@@ -67,11 +67,11 @@ public class Response : IActionResult
             ClearHistory = clearHistory,
         };
 
-        var visibleKeys = new HashSet<string>(props.Keys.Select(k => k.ToCamelCase()), StringComparer.OrdinalIgnoreCase);
-        page.MergeProps = ResolveMergeProps(_props, visibleKeys);
-        page.PrependProps = ResolvePrependProps(_props, visibleKeys);
-        page.DeepMergeProps = ResolveDeepMergeProps(_props, visibleKeys);
-        page.MatchPropsOn = ResolveMatchPropsOn(_props, visibleKeys);
+        var mergeable = GetMergeablePropsForRequest();
+        page.MergeProps = ResolveMergeProps(mergeable);
+        page.PrependProps = ResolvePrependProps(mergeable);
+        page.DeepMergeProps = ResolveDeepMergeProps(mergeable);
+        page.MatchPropsOn = ResolveMatchPropsOn(mergeable);
         page.DeferredProps = ResolveDeferredProps(props);
         page.ScrollProps = ResolveScrollProps(props);
         page.Props["errors"] = ResolveValidationErrors();
@@ -244,14 +244,50 @@ public class Response : IActionResult
     }
 
     /// <summary>
+    /// Get the Mergeable props for the current request, filtered by the Reset,
+    /// Partial-Only, and Partial-Except headers. Mirrors Laravel's
+    /// getMergePropsForRequest helper.
+    /// </summary>
+    private Dictionary<string, object?> GetMergeablePropsForRequest(bool rejectResetProps = true)
+    {
+        var headers = _context!.HttpContext.Request.Headers;
+        var resetProps = ParseHeaderList(headers[InertiaHeader.Reset].ToString());
+        var onlyProps = ParseHeaderList(headers[InertiaHeader.PartialOnly].ToString());
+        var exceptProps = ParseHeaderList(headers[InertiaHeader.PartialExcept].ToString());
+
+        var result = new Dictionary<string, object?>();
+
+        foreach (var kv in _props)
+        {
+            if (kv.Value is not Mergeable m || !m.ShouldMerge()) continue;
+            if (rejectResetProps && resetProps.Contains(kv.Key)) continue;
+            if (onlyProps.Count > 0 && !onlyProps.Contains(kv.Key)) continue;
+            if (exceptProps.Contains(kv.Key)) continue;
+
+            result[kv.Key] = kv.Value;
+        }
+
+        return result;
+    }
+
+    private static HashSet<string> ParseHeaderList(string headerValue)
+    {
+        return new HashSet<string>(
+            headerValue
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s)),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Resolve merge props that should be appended (excludes deep merge and prepend props).
     /// Returns a flat list of prop keys or key.path entries.
     /// </summary>
-    private static List<string>? ResolveMergeProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    private static List<string>? ResolveMergeProps(Dictionary<string, object?> mergeProps)
     {
-        var mergeableProps = props
-            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
-            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
+        var mergeableProps = mergeProps
+            .Where(kv => kv.Value is Mergeable m && !m.ShouldDeepMerge())
             .ToList();
 
         if (mergeableProps.Count == 0) return null;
@@ -281,11 +317,10 @@ public class Response : IActionResult
     /// Resolve props that should be prepended during merging.
     /// Returns a flat list of prop keys or key.path entries.
     /// </summary>
-    private static List<string>? ResolvePrependProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    private static List<string>? ResolvePrependProps(Dictionary<string, object?> mergeProps)
     {
-        var mergeableProps = props
-            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
-            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
+        var mergeableProps = mergeProps
+            .Where(kv => kv.Value is Mergeable m && !m.ShouldDeepMerge())
             .ToList();
 
         if (mergeableProps.Count == 0) return null;
@@ -314,11 +349,10 @@ public class Response : IActionResult
     /// <summary>
     /// Resolve props that should be deep merged.
     /// </summary>
-    private static List<string>? ResolveDeepMergeProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    private static List<string>? ResolveDeepMergeProps(Dictionary<string, object?> mergeProps)
     {
-        var deepMergeProps = props
+        var deepMergeProps = mergeProps
             .Where(kv => kv.Value is Mergeable m && m.ShouldDeepMerge())
-            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
             .Select(kv => kv.Key.ToCamelCase())
             .ToList();
 
@@ -329,14 +363,13 @@ public class Response : IActionResult
     /// Resolve the match-on keys for merge props as a flat list.
     /// Returns entries like "propKey.strategy" matching Laravel's format.
     /// </summary>
-    private static List<string>? ResolveMatchPropsOn(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    private static List<string>? ResolveMatchPropsOn(Dictionary<string, object?> mergeProps)
     {
         var result = new List<string>();
 
-        foreach (var kv in props)
+        foreach (var kv in mergeProps)
         {
-            if (kv.Value is not Mergeable m || !m.ShouldMerge()) continue;
-            if (!visibleKeys.Contains(kv.Key.ToCamelCase())) continue;
+            if (kv.Value is not Mergeable m) continue;
 
             var matchOnKeys = m.GetMatchOn();
             if (matchOnKeys == null || matchOnKeys.Length == 0) continue;
