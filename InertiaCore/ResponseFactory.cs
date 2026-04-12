@@ -42,6 +42,8 @@ internal interface IResponseFactory
     public DeepMergeProp DeepMerge(Func<Task<object?>> callback);
     public OptionalProp Optional(Func<object?> callback);
     public OptionalProp Optional(Func<Task<object?>> callback);
+    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null);
+    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null);
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -257,4 +259,6 @@ internal class ResponseFactory : IResponseFactory
         }
         return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path);
     }
+    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => new(value, wrapper, metadata);
+    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => new(callback, wrapper, metadata);
 }

@@ -8,6 +8,9 @@ public class DeferProp : InvokableProp, IIgnoresFirstLoad, Mergeable
     public bool deepMerge { get; set; } = false;
     protected readonly string _group = "default";
     public string[]? matchOn { get; set; }
+    public bool Append { get; set; } = true;
+    public List<string> AppendsAtPaths { get; } = new();
+    public List<string> PrependsAtPaths { get; } = new();
 
     public DeferProp(object? value, string group) : base(value)
     {
@@ -27,16 +30,13 @@ public class DeferProp : InvokableProp, IIgnoresFirstLoad, Mergeable
     public Mergeable Merge()
     {
         merge = true;
-
         return this;
     }
 
     public Mergeable DeepMerge()
     {
         deepMerge = true;
-
         merge = true;
-
         return this;
     }
 

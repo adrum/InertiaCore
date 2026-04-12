@@ -348,10 +348,11 @@ public partial class Tests
         }));
 
         Assert.That(page?.MergeProps, Is.EqualTo(new List<string> { "testMerge1", "testMerge2" }));
-        Assert.That(page?.MatchPropsOn, Is.EqualTo(new Dictionary<string, string[]>
+        Assert.That(page?.MatchPropsOn, Is.EqualTo(new List<string>
         {
-            { "testMerge1", new[] { "deep" } },
-            { "testMerge2", new[] { "shallow", "replace" } }
+            "testMerge1.deep",
+            "testMerge2.shallow",
+            "testMerge2.replace"
         }));
     }
 
@@ -387,10 +388,10 @@ public partial class Tests
         }));
 
         Assert.That(page?.MergeProps, Is.EqualTo(new List<string> { "testMerge1", "testMerge3" }));
-        Assert.That(page?.MatchPropsOn, Is.EqualTo(new Dictionary<string, string[]>
+        Assert.That(page?.MatchPropsOn, Is.EqualTo(new List<string>
         {
-            { "testMerge1", new[] { "deep" } },
-            { "testMerge3", new[] { "custom" } }
+            "testMerge1.deep",
+            "testMerge3.custom"
         }));
     }
 
@@ -428,9 +429,10 @@ public partial class Tests
         }));
 
         Assert.That(page?.MergeProps, Is.EqualTo(new List<string> { "testMerge2" }));
-        Assert.That(page?.MatchPropsOn, Is.EqualTo(new Dictionary<string, string[]>
+        Assert.That(page?.MatchPropsOn, Is.EqualTo(new List<string>
         {
-            { "testMerge2", new[] { "shallow", "replace" } }
+            "testMerge2.shallow",
+            "testMerge2.replace"
         }));
     }
 

@@ -15,7 +15,10 @@ internal class Page
     public List<string>? MergeProps { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Dictionary<string, string[]>? MatchPropsOn { get; set; }
+    public List<string>? MatchPropsOn { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? PrependProps { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? DeepMergeProps { get; set; }
@@ -23,4 +26,6 @@ internal class Page
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, List<string>>? DeferredProps { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, object>? ScrollProps { get; set; }
 }

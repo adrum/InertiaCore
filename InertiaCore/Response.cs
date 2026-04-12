@@ -67,10 +67,13 @@ public class Response : IActionResult
             ClearHistory = clearHistory,
         };
 
-        page.MergeProps = ResolveMergeProps(props);
-        page.DeepMergeProps = ResolveDeepMergeProps(props);
-        page.MatchPropsOn = ResolveMatchPropsOn(props);
+        var visibleKeys = new HashSet<string>(props.Keys.Select(k => k.ToCamelCase()), StringComparer.OrdinalIgnoreCase);
+        page.MergeProps = ResolveMergeProps(_props, visibleKeys);
+        page.PrependProps = ResolvePrependProps(_props, visibleKeys);
+        page.DeepMergeProps = ResolveDeepMergeProps(_props, visibleKeys);
+        page.MatchPropsOn = ResolveMatchPropsOn(_props, visibleKeys);
         page.DeferredProps = ResolveDeferredProps(props);
+        page.ScrollProps = ResolveScrollProps(props);
         page.Props["errors"] = ResolveValidationErrors();
 
         SetPage(page);
@@ -83,6 +86,7 @@ public class Response : IActionResult
     {
         var props = _props;
 
+        ConfigureScrollProps();
         props = ResolveSharedProps(props);
         props = ResolveInertiaPropertyProviders(props);
         props = ResolvePartialProperties(props);
@@ -90,6 +94,21 @@ public class Response : IActionResult
         props = await ResolvePropertyInstances(props, _context!.HttpContext.Request);
 
         return props;
+    }
+
+    /// <summary>
+    /// Configure scroll props merge intent from the request header.
+    /// </summary>
+    private void ConfigureScrollProps()
+    {
+        var request = _context!.HttpContext.Request;
+        foreach (var kv in _props)
+        {
+            if (kv.Value is ScrollProp scrollProp)
+            {
+                scrollProp.ConfigureMergeIntent(request);
+            }
+        }
     }
 
     /// <summary>
@@ -225,165 +244,147 @@ public class Response : IActionResult
     }
 
     /// <summary>
-    /// Resolve `merge` properties that should be appended to the existing values by the front-end.
+    /// Resolve merge props that should be appended (excludes deep merge and prepend props).
+    /// Returns a flat list of prop keys or key.path entries.
     /// </summary>
-    private List<string>? ResolveMergeProps(Dictionary<string, object?> props)
+    private static List<string>? ResolveMergeProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
     {
-        // Parse the "RESET" header into a collection of keys to reset
-        var resetProps = new HashSet<string>(
-           _context!.HttpContext.Request.Headers[InertiaHeader.Reset]
-               .ToString()
-               .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-               .Select(s => s.Trim()),
-           StringComparer.OrdinalIgnoreCase
-       );
-
-        // Parse the "PARTIAL_ONLY" header into a collection of keys to include
-        var onlyProps = _context!.HttpContext.Request.Headers[InertiaHeader.PartialOnly]
-            .ToString()
-            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Parse the "PARTIAL_EXCEPT" header into a collection of keys to exclude
-        var exceptProps = new HashSet<string>(
-            _context!.HttpContext.Request.Headers[InertiaHeader.PartialExcept]
-                .ToString()
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim()),
-            StringComparer.OrdinalIgnoreCase
-        );
-
-        var resolvedProps = props
-            .Select(kv => kv.Key.ToCamelCase()) // Convert property name to camelCase
+        var mergeableProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
+            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
             .ToList();
 
-        // Filter the props that are Mergeable and should be merged
-        var mergeProps = _props.Where(o => o.Value is Mergeable mergeable && mergeable.ShouldMerge()) // Check if value is Mergeable and should merge
-            .Where(kv => !resetProps.Contains(kv.Key)) // Exclude reset keys
-            .Where(kv => onlyProps.Count == 0 || onlyProps.Contains(kv.Key)) // Include only specified keys if any
-            .Where(kv => !exceptProps.Contains(kv.Key)) // Exclude specified keys
-            .Select(kv => kv.Key.ToCamelCase()) // Convert property name to camelCase
-            .Where(resolvedProps.Contains) // Filter only the props that are in the resolved props
-            .ToList();
+        if (mergeableProps.Count == 0) return null;
 
-        if (mergeProps.Count == 0)
+        var result = new List<string>();
+
+        foreach (var kv in mergeableProps)
         {
-            return null;
+            var m = (Mergeable)kv.Value!;
+            var key = kv.Key.ToCamelCase();
+
+            if (m.AppendsAtRoot())
+            {
+                result.Add(key);
+            }
+
+            foreach (var path in m.AppendsAtPaths)
+            {
+                result.Add($"{key}.{path}");
+            }
         }
 
-        // Return the result
-        return mergeProps;
+        return result.Count > 0 ? result : null;
     }
 
+    /// <summary>
+    /// Resolve props that should be prepended during merging.
+    /// Returns a flat list of prop keys or key.path entries.
+    /// </summary>
+    private static List<string>? ResolvePrependProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    {
+        var mergeableProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldMerge() && !m.ShouldDeepMerge())
+            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
+            .ToList();
+
+        if (mergeableProps.Count == 0) return null;
+
+        var result = new List<string>();
+
+        foreach (var kv in mergeableProps)
+        {
+            var m = (Mergeable)kv.Value!;
+            var key = kv.Key.ToCamelCase();
+
+            if (m.PrependsAtRoot())
+            {
+                result.Add(key);
+            }
+
+            foreach (var path in m.PrependsAtPaths)
+            {
+                result.Add($"{key}.{path}");
+            }
+        }
+
+        return result.Count > 0 ? result : null;
+    }
 
     /// <summary>
-    /// Resolve match props on for properties that should be matched on specific keys.
+    /// Resolve props that should be deep merged.
     /// </summary>
-    private Dictionary<string, string[]>? ResolveMatchPropsOn(Dictionary<string, object?> props)
+    private static List<string>? ResolveDeepMergeProps(Dictionary<string, object?> props, HashSet<string> visibleKeys)
     {
-        // Parse the "RESET" header into a collection of keys to reset
+        var deepMergeProps = props
+            .Where(kv => kv.Value is Mergeable m && m.ShouldDeepMerge())
+            .Where(kv => visibleKeys.Contains(kv.Key.ToCamelCase()))
+            .Select(kv => kv.Key.ToCamelCase())
+            .ToList();
+
+        return deepMergeProps.Count > 0 ? deepMergeProps : null;
+    }
+
+    /// <summary>
+    /// Resolve the match-on keys for merge props as a flat list.
+    /// Returns entries like "propKey.strategy" matching Laravel's format.
+    /// </summary>
+    private static List<string>? ResolveMatchPropsOn(Dictionary<string, object?> props, HashSet<string> visibleKeys)
+    {
+        var result = new List<string>();
+
+        foreach (var kv in props)
+        {
+            if (kv.Value is not Mergeable m || !m.ShouldMerge()) continue;
+            if (!visibleKeys.Contains(kv.Key.ToCamelCase())) continue;
+
+            var matchOnKeys = m.GetMatchOn();
+            if (matchOnKeys == null || matchOnKeys.Length == 0) continue;
+
+            var key = kv.Key.ToCamelCase();
+            foreach (var matchOnItem in matchOnKeys)
+            {
+                result.Add($"{key}.{matchOnItem}");
+            }
+        }
+
+        return result.Count > 0 ? result : null;
+    }
+
+    /// <summary>
+    /// Resolve scroll props metadata for the page object.
+    /// </summary>
+    private Dictionary<string, object>? ResolveScrollProps(Dictionary<string, object?> props)
+    {
         var resetProps = new HashSet<string>(
-           _context!.HttpContext.Request.Headers[InertiaHeader.Reset]
-               .ToString()
-               .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-               .Select(s => s.Trim()),
-           StringComparer.OrdinalIgnoreCase
-       );
-
-        // Parse the "PARTIAL_ONLY" header into a collection of keys to include
-        var onlyProps = _context!.HttpContext.Request.Headers[InertiaHeader.PartialOnly]
-            .ToString()
-            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Parse the "PARTIAL_EXCEPT" header into a collection of keys to exclude
-        var exceptProps = new HashSet<string>(
-            _context!.HttpContext.Request.Headers[InertiaHeader.PartialExcept]
+            _context!.HttpContext.Request.Headers[InertiaHeader.Reset]
                 .ToString()
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim()),
-            StringComparer.OrdinalIgnoreCase
-        );
+            StringComparer.OrdinalIgnoreCase);
 
-        var resolvedProps = props
-            .Select(kv => kv.Key.ToCamelCase()) // Convert property name to camelCase
-            .ToList();
+        bool isPartial = _context!.IsInertiaPartialComponent(_component);
 
-        // Filter the props that have match on keys
-        var matchPropsOn = _props.Where(o => o.Value is Mergeable mergeable && mergeable.ShouldMerge() && mergeable.GetMatchOn() != null)
-            .Where(kv => !resetProps.Contains(kv.Key)) // Exclude reset keys
-            .Where(kv => onlyProps.Count == 0 || onlyProps.Contains(kv.Key)) // Include only specified keys if any
-            .Where(kv => !exceptProps.Contains(kv.Key)) // Exclude specified keys
-            .Where(kv => resolvedProps.Contains(kv.Key.ToCamelCase())) // Filter only the props that are in the resolved props
+        var scrollProps = _props
+            .Where(kv => kv.Value is ScrollProp)
+            .Where(kv =>
+            {
+                var sp = (ScrollProp)kv.Value!;
+                // On non-partial, exclude deferred scroll props
+                if (!isPartial && sp.ShouldDefer()) return false;
+                return true;
+            })
             .ToDictionary(
-                kv => kv.Key.ToCamelCase(), // Convert property name to camelCase
-                kv => ((Mergeable)kv.Value!).GetMatchOn()!
-            );
+                kv => kv.Key.ToCamelCase(),
+                kv =>
+                {
+                    var sp = (ScrollProp)kv.Value!;
+                    var metadata = sp.GetMetadata();
+                    metadata["reset"] = resetProps.Contains(kv.Key);
+                    return (object)metadata;
+                });
 
-        if (matchPropsOn.Count == 0)
-        {
-            return null;
-        }
-
-        // Return the result
-        return matchPropsOn;
-    }
-
-    /// <summary>
-    /// Resolve deep merge properties that should be deeply merged with existing values by the front-end.
-    /// </summary>
-    private List<string>? ResolveDeepMergeProps(Dictionary<string, object?> props)
-    {
-        // Parse the "RESET" header into a collection of keys to reset
-        var resetProps = new HashSet<string>(
-           _context!.HttpContext.Request.Headers[InertiaHeader.Reset]
-               .ToString()
-               .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-               .Select(s => s.Trim()),
-           StringComparer.OrdinalIgnoreCase
-       );
-
-        // Parse the "PARTIAL_ONLY" header into a collection of keys to include
-        var onlyProps = _context!.HttpContext.Request.Headers[InertiaHeader.PartialOnly]
-            .ToString()
-            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Parse the "PARTIAL_EXCEPT" header into a collection of keys to exclude
-        var exceptProps = new HashSet<string>(
-            _context!.HttpContext.Request.Headers[InertiaHeader.PartialExcept]
-                .ToString()
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim()),
-            StringComparer.OrdinalIgnoreCase
-        );
-
-        var resolvedProps = props
-            .Select(kv => kv.Key.ToCamelCase()) // Convert property name to camelCase
-            .ToList();
-
-        // Filter the props that are DeepMergeable and should be deeply merged
-        var deepMergeProps = _props.Where(o => o.Value is DeepMergeProp deepMergeable && deepMergeable.ShouldDeepMerge()) // Check if value is DeepMergeProp and should deep merge
-            .Where(kv => !resetProps.Contains(kv.Key)) // Exclude reset keys
-            .Where(kv => onlyProps.Count == 0 || onlyProps.Contains(kv.Key)) // Include only specified keys if any
-            .Where(kv => !exceptProps.Contains(kv.Key)) // Exclude specified keys
-            .Select(kv => kv.Key.ToCamelCase()) // Convert property name to camelCase
-            .Where(resolvedProps.Contains) // Filter only the props that are in the resolved props
-            .ToList();
-
-        if (deepMergeProps.Count == 0)
-        {
-            return null;
-        }
-
-        // Return the result
-        return deepMergeProps;
+        return scrollProps.Count == 0 ? null : scrollProps;
     }
 
     /// <summary>
