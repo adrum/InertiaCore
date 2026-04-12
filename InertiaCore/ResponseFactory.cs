@@ -49,6 +49,8 @@ internal interface IResponseFactory
     public void Flash(string key, object? value);
     public void Flash(IDictionary<string, object?> data);
     public Dictionary<string, object?> GetFlashed();
+    public OnceProp Once(Func<object?> callback);
+    public OnceProp Once(Func<Task<object?>> callback);
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -216,6 +218,8 @@ internal class ResponseFactory : IResponseFactory
     public AlwaysProp Always(object? value) => new(value);
     public AlwaysProp Always(Func<object?> callback) => new(callback);
     public AlwaysProp Always(Func<Task<object?>> callback) => new(callback);
+    public OnceProp Once(Func<object?> callback) => new(callback);
+    public OnceProp Once(Func<Task<object?>> callback) => new(callback);
     public DeferProp Defer(Func<object?> callback, string group = "default") => new(callback, group);
     public DeferProp Defer(Func<Task<object?>> callback, string group = "default") => new(callback, group);
     public MergeProp Merge(object? value) => new(value);

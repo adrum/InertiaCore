@@ -85,4 +85,8 @@ public static class Inertia
     public static void Flash(IDictionary<string, object?> data) => _factory.Flash(data);
 
     public static Dictionary<string, object?> GetFlashed() => _factory.GetFlashed();
+
+    public static OnceProp Once(Func<object?> callback) => _factory.Once(callback);
+
+    public static OnceProp Once(Func<Task<object?>> callback) => _factory.Once(callback);
 }

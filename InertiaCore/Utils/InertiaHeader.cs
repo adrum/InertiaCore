@@ -19,4 +19,6 @@ public static class InertiaHeader
     public const string Reset = "X-Inertia-Reset";
 
     public const string InfiniteScrollMergeIntent = "X-Inertia-Infinite-Scroll-Merge-Intent";
+
+    public const string ExceptOnceProps = "X-Inertia-Except-Once-Props";
 }
