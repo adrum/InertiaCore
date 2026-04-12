@@ -52,7 +52,8 @@ internal class ResponseFactory : IResponseFactory
                 .ToDictionary(o => o.Name, o => o.GetValue(props))
         };
 
-        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _serializer);
+        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _serializer,
+            _options.Value.WithAllErrors);
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
