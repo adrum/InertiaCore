@@ -15,14 +15,16 @@ public class Response : IActionResult
     private readonly string _rootView;
     private readonly string? _version;
     private readonly IInertiaSerializer _serializer;
+    private readonly bool _withAllErrors;
 
     private ActionContext? _context;
     private Page? _page;
     private IDictionary<string, object>? _viewData;
 
     internal Response(string component, Dictionary<string, object?> props, string rootView, string? version,
-        IInertiaSerializer serializer)
-        => (_component, _props, _rootView, _version, _serializer) = (component, props, rootView, version, serializer);
+        IInertiaSerializer serializer, bool withAllErrors = false)
+        => (_component, _props, _rootView, _version, _serializer, _withAllErrors) =
+            (component, props, rootView, version, serializer, withAllErrors);
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -192,13 +194,15 @@ public class Response : IActionResult
 
     protected internal IActionResult GetResult() => _context!.IsInertiaRequest() ? GetJson() : GetView();
 
-    private Dictionary<string, string> GetErrors()
+    private Dictionary<string, object> GetErrors()
     {
         if (!_context!.ModelState.IsValid)
             return _context!.ModelState.ToDictionary(o => o.Key.ToCamelCase(),
-                o => o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? "");
+                o => _withAllErrors
+                    ? (object)(o.Value?.Errors.Select(e => e.ErrorMessage).ToArray() ?? Array.Empty<string>())
+                    : (object)(o.Value?.Errors.FirstOrDefault()?.ErrorMessage ?? ""));
 
-        return new Dictionary<string, string>(0);
+        return new Dictionary<string, object>(0);
     }
 
     protected internal void SetContext(ActionContext context) => _context = context;
