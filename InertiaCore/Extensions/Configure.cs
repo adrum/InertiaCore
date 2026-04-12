@@ -40,6 +40,13 @@ public static class Configure
         return app;
     }
 
+    /// <summary>Globally enable Inertia history encryption for all routes.</summary>
+    public static IApplicationBuilder UseInertiaEncryptHistory(this IApplicationBuilder app)
+    {
+        app.UseMiddleware<InertiaCore.Middleware.EncryptHistoryMiddleware>();
+        return app;
+    }
+
     public static IServiceCollection AddInertia(this IServiceCollection services,
         Action<InertiaOptions>? options = null)
     {
