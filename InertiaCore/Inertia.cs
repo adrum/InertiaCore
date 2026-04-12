@@ -111,4 +111,14 @@ public static class Inertia
     public static OnceProp ShareOnce(string key, Func<object?> callback) => _factory.ShareOnce(key, callback);
 
     public static OnceProp ShareOnce(string key, Func<Task<object?>> callback) => _factory.ShareOnce(key, callback);
+
+    /// <summary>
+    /// Register a callback that receives an <see cref="ExceptionResponse"/>
+    /// for each unhandled exception on an Inertia request. Combine with
+    /// <c>app.UseInertiaExceptionHandler()</c> in the middleware pipeline to
+    /// render a custom Inertia error page. Mirrors Laravel's
+    /// <c>Inertia::handleExceptionsUsing()</c>.
+    /// </summary>
+    public static void HandleExceptionsUsing(Action<ExceptionResponse>? handler) =>
+        _factory.HandleExceptionsUsing(handler);
 }
