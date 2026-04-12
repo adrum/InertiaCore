@@ -24,9 +24,9 @@ public class MapInertiaTests
         var contextAccessor = new Mock<IHttpContextAccessor>();
         var httpClientFactory = new Mock<IHttpClientFactory>();
         var serializer = new DefaultInertiaSerializer();
-        var gateway = new Gateway(httpClientFactory.Object, serializer);
         var options = new Mock<IOptions<InertiaOptions>>();
         options.SetupGet(x => x.Value).Returns(new InertiaOptions());
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object);
 
         _factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object);
         Inertia.UseFactory(_factory);
