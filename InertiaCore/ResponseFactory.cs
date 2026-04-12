@@ -18,7 +18,7 @@ internal interface IResponseFactory
 {
     public Response Render(string component, object? props = null);
     public Task<IHtmlContent> Head(dynamic model);
-    public Task<IHtmlContent> Html(dynamic model);
+    public Task<IHtmlContent> Html(dynamic model, string id = "app");
     public void Version(string? version);
     public void Version(Func<string?> version);
     public string? GetVersion();
@@ -104,7 +104,7 @@ internal class ResponseFactory : IResponseFactory
         return response.GetHead();
     }
 
-    public async Task<IHtmlContent> Html(dynamic model)
+    public async Task<IHtmlContent> Html(dynamic model, string id = "app")
     {
         if (_options.Value.SsrEnabled && _gateway.ShouldDispatch())
         {
@@ -121,9 +121,20 @@ internal class ResponseFactory : IResponseFactory
         }
 
         var data = _serializer.Serialize(model);
+
+        if (_options.Value.UseScriptTagForInitialPage)
+        {
+            // Escape any closing script tags in the JSON payload so they don't
+            // prematurely terminate the surrounding <script> element.
+            var safeJson = data.Replace("</", "<\\/");
+
+            return new HtmlString(
+                $"<script data-page=\"{id}\" type=\"application/json\">{safeJson}</script><div id=\"{id}\"></div>");
+        }
+
         var encoded = WebUtility.HtmlEncode(data);
 
-        return new HtmlString($"<div id=\"app\" data-page=\"{encoded}\"></div>");
+        return new HtmlString($"<div id=\"{id}\" data-page=\"{encoded}\"></div>");
     }
 
     public void Version(string? version) => _version = version;

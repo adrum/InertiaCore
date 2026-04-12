@@ -15,4 +15,6 @@ public class InertiaOptions
     public string[] PageExtensions { get; set; } = new[] { ".vue", ".svelte", ".js", ".jsx", ".ts", ".tsx" };
 
     public bool WithAllErrors { get; set; } = false;
+
+    public bool UseScriptTagForInitialPage { get; set; } = false;
 }
