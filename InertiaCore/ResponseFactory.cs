@@ -62,8 +62,6 @@ internal class ResponseFactory : IResponseFactory
     private readonly IWebHostEnvironment _environment;
 
     private object? _version;
-    private bool _clearHistory;
-    private bool? _encryptHistory;
     private Func<ActionContext, string>? _urlResolver;
 
     public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IInertiaSerializer serializer,
@@ -85,7 +83,7 @@ internal class ResponseFactory : IResponseFactory
                 .ToDictionary(o => o.Name, o => o.GetValue(props))
         };
 
-        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), _encryptHistory ?? _options.Value.EncryptHistory, _serializer, _urlResolver);
+        return new Response(component, dictProps, _options.Value.RootView, GetVersion(), GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver);
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
@@ -177,39 +175,36 @@ internal class ResponseFactory : IResponseFactory
     public void ClearHistory(bool clear = true)
     {
         var context = _contextAccessor.HttpContext;
-
-        // Try to use session first (preferred for production to survive redirects)
-        if (context?.Session != null)
+        if (context != null)
         {
-            if (clear)
-            {
-                context.Session.SetString("inertia.clear_history", "true");
-            }
-            else
-            {
-                context.Session.Remove("inertia.clear_history");
-            }
+            context.Items["inertia.clear_history"] = clear;
         }
-        else if (context?.Features != null)
-        {
-            // Fallback for test scenarios: store in request features
-            if (clear)
-            {
-                context.Features.Set<bool>(true);
-                context.Items["inertia.clear_history"] = true;
-            }
-            else
-            {
-                context.Features.Set<bool>(false);
-                context.Items.Remove("inertia.clear_history");
-            }
-        }
-
-        // Always set the instance variable as fallback
-        _clearHistory = clear;
     }
 
-    public void EncryptHistory(bool encrypt = true) => _encryptHistory = encrypt;
+    public void EncryptHistory(bool encrypt = true)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context != null)
+        {
+            context.Items["inertia.encrypt_history"] = encrypt;
+        }
+    }
+
+    private bool GetClearHistory()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context?.Items.TryGetValue("inertia.clear_history", out var value) == true && value is bool clear)
+            return clear;
+        return false;
+    }
+
+    private bool GetEncryptHistory()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context?.Items.TryGetValue("inertia.encrypt_history", out var value) == true && value is bool encrypt)
+            return encrypt;
+        return _options.Value.EncryptHistory;
+    }
 
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _urlResolver = urlResolver;
 

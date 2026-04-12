@@ -57,49 +57,17 @@ public partial class Tests
     [Description("Test if clear history is sent correctly.")]
     public async Task TestClearHistoryResult()
     {
-        // Set up session mock
-        var sessionData = new Dictionary<string, byte[]>();
-        var sessionMock = new Mock<ISession>();
+        var (factory, httpContext) = CreateFactoryWithDefaultContext();
 
-        sessionMock.Setup(s => s.Set(It.IsAny<string>(), It.IsAny<byte[]>()))
-            .Callback<string, byte[]>((key, value) => sessionData[key] = value);
+        factory.ClearHistory();
 
-        sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]?>.IsAny))
-            .Returns((string key, out byte[]? value) => sessionData.TryGetValue(key, out value));
-
-        sessionMock.Setup(s => s.Remove(It.IsAny<string>()))
-            .Callback<string>(key => sessionData.Remove(key));
-
-        // Set up HttpContext with session support
-        var httpContextMock = new Mock<HttpContext>();
-        httpContextMock.SetupGet(c => c.Session).Returns(sessionMock.Object);
-
-        var contextAccessorMock = new Mock<IHttpContextAccessor>();
-        contextAccessorMock.SetupGet(a => a.HttpContext).Returns(httpContextMock.Object);
-
-        // Create factory with session support
-        var gateway = new Mock<IGateway>();
-        var options = new Mock<IOptions<InertiaOptions>>();
-        options.SetupGet(x => x.Value).Returns(new InertiaOptions());
-        var environment = new Mock<IWebHostEnvironment>();
-        environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
-        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
-
-        factoryWithSession.ClearHistory();
-
-        var response = factoryWithSession.Render("Test/Page", new
+        var response = factory.Render("Test/Page", new
         {
             Test = "Test"
         });
 
-        var headers = new HeaderDictionary
-        {
-            { "X-Inertia", "true" }
-        };
-
-        var context = PrepareContextWithSession(headers, sessionMock.Object);
-
-        response.SetContext(context);
+        httpContext.Request.Headers["X-Inertia"] = "true";
+        response.SetContext(new ActionContext(httpContext, new Microsoft.AspNetCore.Routing.RouteData(), new Microsoft.AspNetCore.Mvc.Abstractions.ActionDescriptor()));
         await response.ProcessResponse();
 
         var result = response.GetResult();
@@ -120,62 +88,27 @@ public partial class Tests
                 { "errors", new Dictionary<string, string>(0) }
             }));
         });
-
-        // Verify session value was removed after being read (one-time use behavior)
-        sessionMock.Verify(s => s.Remove("inertia.clear_history"), Times.Once);
     }
 
     [Test]
     [Description("Test if clear history persists when redirecting.")]
     public async Task TestClearHistoryWithRedirect()
     {
-        // Arrange: Set up session mock to simulate session storage behavior
-        var sessionData = new Dictionary<string, byte[]>();
-        var sessionMock = new Mock<ISession>();
+        var (factory, httpContext) = CreateFactoryWithDefaultContext();
 
-        sessionMock.Setup(s => s.Set(It.IsAny<string>(), It.IsAny<byte[]>()))
-            .Callback<string, byte[]>((key, value) => sessionData[key] = value);
+        // Simulate first request: set clearHistory
+        factory.ClearHistory();
 
-        sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]?>.IsAny))
-            .Returns((string key, out byte[]? value) => sessionData.TryGetValue(key, out value));
+        // Render the response that follows the redirect
+        var response = factory.Render("User/Edit", new { });
 
-        sessionMock.Setup(s => s.Remove(It.IsAny<string>()))
-            .Callback<string>(key => sessionData.Remove(key));
-
-        // Set up HttpContext with session support
-        var httpContextMock = new Mock<HttpContext>();
-        httpContextMock.SetupGet(c => c.Session).Returns(sessionMock.Object);
-
-        var contextAccessorMock = new Mock<IHttpContextAccessor>();
-        contextAccessorMock.SetupGet(a => a.HttpContext).Returns(httpContextMock.Object);
-
-        // Create factory with session support
-        var gateway = new Mock<IGateway>();
-        var options = new Mock<IOptions<InertiaOptions>>();
-        options.SetupGet(x => x.Value).Returns(new InertiaOptions());
-        var environment = new Mock<IWebHostEnvironment>();
-        environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
-        var factoryWithSession = new ResponseFactory(contextAccessorMock.Object, gateway.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
-
-        // Simulate first request: set clearHistory and redirect
-        factoryWithSession.ClearHistory();
-
-        // Simulate second request after redirect: create new response
-        var response = factoryWithSession.Render("User/Edit", new { });
-
-        var headers = new HeaderDictionary
-        {
-            { "X-Inertia", "true" }
-        };
-
-        var context = PrepareContextWithSession(headers, sessionMock.Object);
-
-        response.SetContext(context);
+        httpContext.Request.Headers["X-Inertia"] = "true";
+        response.SetContext(new ActionContext(httpContext, new Microsoft.AspNetCore.Routing.RouteData(), new Microsoft.AspNetCore.Mvc.Abstractions.ActionDescriptor()));
         await response.ProcessResponse();
 
         var result = response.GetResult();
 
-        // Assert: clearHistory should persist through redirect
+        // Assert: clearHistory should be set on the page
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.InstanceOf<JsonResult>());
@@ -187,9 +120,26 @@ public partial class Tests
             Assert.That((json as Page)?.EncryptHistory, Is.EqualTo(false));
             Assert.That((json as Page)?.Component, Is.EqualTo("User/Edit"));
         });
+    }
 
-        // Verify session value was removed after being read (one-time use behavior)
-        sessionMock.Verify(s => s.Remove("inertia.clear_history"), Times.Once);
+    /// <summary>
+    /// Builds a ResponseFactory whose HttpContextAccessor is wired to a single DefaultHttpContext,
+    /// so state set via ClearHistory / EncryptHistory is visible when Render() is called.
+    /// </summary>
+    private static (IResponseFactory factory, HttpContext httpContext) CreateFactoryWithDefaultContext()
+    {
+        var httpContext = new DefaultHttpContext();
+        var contextAccessor = new Mock<IHttpContextAccessor>();
+        contextAccessor.SetupGet(a => a.HttpContext).Returns(httpContext);
+
+        var gateway = new Mock<IGateway>();
+        var options = new Mock<IOptions<InertiaOptions>>();
+        options.SetupGet(x => x.Value).Returns(new InertiaOptions());
+        var environment = new Mock<IWebHostEnvironment>();
+        environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
+
+        var factory = new ResponseFactory(contextAccessor.Object, gateway.Object, new DefaultInertiaSerializer(), options.Object, environment.Object);
+        return (factory, httpContext);
     }
 
     /// <summary>

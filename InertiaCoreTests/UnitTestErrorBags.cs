@@ -60,10 +60,10 @@ public class UnitTestErrorBags
         var constructor = responseType.GetConstructor(
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+            new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
             null);
 
-        _response = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+        _response = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
         _response.SetContext(_actionContext);
     }
 
@@ -145,9 +145,9 @@ public class UnitTestErrorBags
             var constructor = responseType.GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
                 null);
-            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
             testResponse.SetContext(testActionContext);
         });
     }
@@ -181,9 +181,9 @@ public class UnitTestErrorBags
             var constructor = responseType.GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
                 null);
-            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
             testResponse.SetContext(_actionContext);
         });
     }
@@ -214,9 +214,9 @@ public class UnitTestErrorBags
             var constructor = responseType.GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
                 null);
-            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
             testResponse.SetContext(_actionContext);
         });
     }
@@ -250,9 +250,9 @@ public class UnitTestErrorBags
             var constructor = responseType.GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
                 null);
-            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
             testResponse.SetContext(_actionContext);
         });
     }
@@ -302,9 +302,9 @@ public class UnitTestErrorBags
             var constructor = responseType.GetConstructor(
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
+                new[] { typeof(string), typeof(Dictionary<string, object?>), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(IInertiaSerializer), typeof(Func<ActionContext, string>) },
                 null);
-            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, _serializerMock.Object, null! });
+            var testResponse = (Response)constructor!.Invoke(new object[] { "TestComponent", new Dictionary<string, object?>(), "app", null!, false, false, _serializerMock.Object, null! });
             testResponse.SetContext(testActionContext);
         });
     }
