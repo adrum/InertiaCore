@@ -6,6 +6,8 @@ using InertiaCore.Utils;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Hosting;
 
@@ -44,6 +46,9 @@ internal interface IResponseFactory
     public OptionalProp Optional(Func<Task<object?>> callback);
     public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null);
     public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null);
+    public void Flash(string key, object? value);
+    public void Flash(IDictionary<string, object?> data);
+    public Dictionary<string, object?> GetFlashed();
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -221,6 +226,65 @@ internal class ResponseFactory : IResponseFactory
     public DeepMergeProp DeepMerge(Func<Task<object?>> callback) => new(callback);
     public OptionalProp Optional(Func<object?> callback) => new(callback);
     public OptionalProp Optional(Func<Task<object?>> callback) => new(callback);
+    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => new(value, wrapper, metadata);
+    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => new(callback, wrapper, metadata);
+
+    private const string FlashDataKey = "inertia.flash_data";
+
+    public void Flash(string key, object? value)
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+        flash[key] = value;
+        SetFlashStore(context, flash);
+    }
+
+    public void Flash(IDictionary<string, object?> data)
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+        foreach (var kvp in data)
+            flash[kvp.Key] = kvp.Value;
+        SetFlashStore(context, flash);
+    }
+
+    public Dictionary<string, object?> GetFlashed()
+    {
+        var context = _contextAccessor.HttpContext!;
+        var flash = GetFlashStore(context);
+
+        try
+        {
+            var tempDataFactory = context.RequestServices?.GetService<ITempDataDictionaryFactory>();
+            if (tempDataFactory != null)
+            {
+                var tempData = tempDataFactory.GetTempData(context);
+                if (tempData.ContainsKey(FlashDataKey) && tempData[FlashDataKey] is string json && !string.IsNullOrEmpty(json))
+                {
+                    var stored = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(json);
+                    if (stored != null)
+                        foreach (var kvp in stored)
+                            if (!flash.ContainsKey(kvp.Key))
+                                flash[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+        catch { }
+
+        return flash;
+    }
+
+    private static Dictionary<string, object?> GetFlashStore(HttpContext context)
+    {
+        if (context.Items.TryGetValue(FlashDataKey, out var existing) && existing is Dictionary<string, object?> flash)
+            return flash;
+        return new Dictionary<string, object?>();
+    }
+
+    private static void SetFlashStore(HttpContext context, Dictionary<string, object?> flash)
+    {
+        context.Items[FlashDataKey] = flash;
+    }
 
     private void FindComponentOrFail(string component)
     {
@@ -259,6 +323,4 @@ internal class ResponseFactory : IResponseFactory
         }
         return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path);
     }
-    public ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => new(value, wrapper, metadata);
-    public ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => new(callback, wrapper, metadata);
 }

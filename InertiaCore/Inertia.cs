@@ -79,4 +79,10 @@ public static class Inertia
     public static ScrollProp Scroll(object? value, string wrapper = "data", IScrollMetadata? metadata = null) => _factory.Scroll(value, wrapper, metadata);
 
     public static ScrollProp Scroll(Func<object?> callback, string wrapper = "data", IScrollMetadata? metadata = null) => _factory.Scroll(callback, wrapper, metadata);
+
+    public static void Flash(string key, object? value) => _factory.Flash(key, value);
+
+    public static void Flash(IDictionary<string, object?> data) => _factory.Flash(data);
+
+    public static Dictionary<string, object?> GetFlashed() => _factory.GetFlashed();
 }

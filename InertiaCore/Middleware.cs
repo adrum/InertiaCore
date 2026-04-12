@@ -48,13 +48,23 @@ public class Middleware
             context.Response.StatusCode = 303;
         }
 
-        // Reflash TempData on redirect responses
+        // Reflash TempData on redirect responses and persist flash data
         if (context.Response.StatusCode >= 300 && context.Response.StatusCode < 400)
         {
             try
             {
                 var tempData = context.RequestServices.GetRequiredService<ITempDataDictionaryFactory>()
                     .GetTempData(context);
+
+                // Persist flash data staged on HttpContext.Items to TempData so it
+                // survives the redirect and is available on the next request.
+                if (context.Items.TryGetValue("inertia.flash_data", out var flash)
+                    && flash is Dictionary<string, object?> flashDict && flashDict.Count > 0)
+                {
+                    tempData["inertia.flash_data"] = System.Text.Json.JsonSerializer.Serialize(flashDict);
+                    tempData.Save();
+                }
+
                 if (tempData.Any()) tempData.Keep();
             }
             catch
