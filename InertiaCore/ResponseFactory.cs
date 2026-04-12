@@ -30,6 +30,7 @@ internal interface IResponseFactory
     public object? GetShared(string? key = null, object? defaultValue = null);
     public void ClearHistory(bool clear = true);
     public void EncryptHistory(bool encrypt = true);
+    public void PreserveFragment(bool preserve = true);
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver);
     public AlwaysProp Always(object? value);
     public AlwaysProp Always(Func<object?> callback);
@@ -88,7 +89,8 @@ internal class ResponseFactory : IResponseFactory
         };
 
         return new Response(component, dictProps, _options.Value.RootView, GetVersion(),
-            GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver, _options.Value.WithAllErrors);
+            GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver, _options.Value.WithAllErrors,
+            GetPreserveFragment());
     }
 
     public async Task<IHtmlContent> Head(dynamic model)
@@ -231,6 +233,23 @@ internal class ResponseFactory : IResponseFactory
         {
             context.Items["inertia.encrypt_history"] = encrypt;
         }
+    }
+
+    public void PreserveFragment(bool preserve = true)
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context != null)
+        {
+            context.Items["inertia.preserve_fragment"] = preserve;
+        }
+    }
+
+    private bool GetPreserveFragment()
+    {
+        var context = _contextAccessor.HttpContext;
+        if (context?.Items.TryGetValue("inertia.preserve_fragment", out var value) == true && value is bool preserve)
+            return preserve;
+        return false;
     }
 
     private bool GetClearHistory()

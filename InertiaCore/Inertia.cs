@@ -49,6 +49,8 @@ public static class Inertia
 
     public static void EncryptHistory(bool encrypt = true) => _factory.EncryptHistory(encrypt);
 
+    public static void PreserveFragment(bool preserve = true) => _factory.PreserveFragment(preserve);
+
     public static AlwaysProp Always(string value) => _factory.Always(value);
 
     public static AlwaysProp Always(Func<string> callback) => _factory.Always(callback);
