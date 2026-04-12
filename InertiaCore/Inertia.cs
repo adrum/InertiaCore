@@ -47,6 +47,9 @@ public static class Inertia
 
     public static void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _factory.ResolveUrlUsing(urlResolver);
 
+    public static void TransformComponentUsing(Func<string, string?>? componentTransformer) =>
+        _factory.TransformComponentUsing(componentTransformer);
+
     public static void ClearHistory(bool clear = true) => _factory.ClearHistory(clear);
 
     public static void EncryptHistory(bool encrypt = true) => _factory.EncryptHistory(encrypt);
