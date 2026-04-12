@@ -17,6 +17,7 @@ namespace InertiaCore;
 internal interface IResponseFactory
 {
     public Response Render(string component, object? props = null);
+    public Response Render(Enum component, object? props = null);
     public Task<IHtmlContent> Head(dynamic model);
     public Task<IHtmlContent> Html(dynamic model, string id = "app");
     public void Version(string? version);
@@ -90,6 +91,9 @@ internal class ResponseFactory : IResponseFactory
         return new Response(component, dictProps, _options.Value.RootView, GetVersion(),
             GetEncryptHistory(), GetClearHistory(), _serializer, _urlResolver, _options.Value.WithAllErrors);
     }
+
+    public Response Render(Enum component, object? props = null)
+        => Render(component.ToString(), props);
 
     public async Task<IHtmlContent> Head(dynamic model)
     {
