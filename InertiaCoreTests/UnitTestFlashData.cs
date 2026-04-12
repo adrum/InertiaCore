@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -126,6 +127,145 @@ public partial class Tests
             Assert.That(page, Is.Not.Null);
             Assert.That(page!.Flash, Is.Not.Null);
             Assert.That(page.Flash!["message"], Is.EqualTo("Success!"));
+        });
+    }
+
+    /// <summary>
+    /// Builds a ResponseFactory whose HttpContext has RequestServices wired up with a
+    /// mocked ITempDataDictionaryFactory backed by a simple dictionary, so PullFlashed
+    /// can observe both request-scoped and TempData-backed flash stores.
+    /// </summary>
+    private static (IResponseFactory factory, HttpContext httpContext, Dictionary<string, object> tempDataStore)
+        PrepareFlashFactoryWithTempData()
+    {
+        var httpContext = new DefaultHttpContext();
+
+        var tempDataStore = new Dictionary<string, object>();
+        var tempData = new Mock<ITempDataDictionary>();
+        tempData.Setup(t => t.ContainsKey(It.IsAny<string>()))
+            .Returns<string>(k => tempDataStore.ContainsKey(k));
+        tempData.Setup(t => t[It.IsAny<string>()])
+            .Returns<string>(k => tempDataStore.TryGetValue(k, out var v) ? v : null);
+        tempData.Setup(t => t.Remove(It.IsAny<string>()))
+            .Returns<string>(k => tempDataStore.Remove(k));
+        tempData.Setup(t => t.Save());
+
+        var tempDataFactory = new Mock<ITempDataDictionaryFactory>();
+        tempDataFactory.Setup(f => f.GetTempData(It.IsAny<HttpContext>())).Returns(tempData.Object);
+
+        var serviceProvider = new Mock<IServiceProvider>();
+        serviceProvider.Setup(s => s.GetService(typeof(ITempDataDictionaryFactory)))
+            .Returns(tempDataFactory.Object);
+
+        httpContext.RequestServices = serviceProvider.Object;
+
+        var contextAccessor = new Mock<IHttpContextAccessor>();
+        contextAccessor.SetupGet(x => x.HttpContext).Returns(httpContext);
+
+        var httpClientFactory = new Mock<IHttpClientFactory>();
+        var environment = new Mock<IWebHostEnvironment>();
+        environment.SetupGet(x => x.ContentRootPath).Returns(Path.GetTempPath());
+        var serializer = new DefaultInertiaSerializer();
+        var options = new Mock<IOptions<InertiaOptions>>();
+        options.SetupGet(x => x.Value).Returns(new InertiaOptions());
+
+        var gateway = new Gateway(httpClientFactory.Object, serializer, options.Object, environment.Object);
+        var factory = new ResponseFactory(contextAccessor.Object, gateway, serializer, options.Object, environment.Object);
+        Inertia.UseFactory(factory);
+
+        return (factory, httpContext, tempDataStore);
+    }
+
+    [Test]
+    [Description("PullFlashed returns empty dict when no flash data exists.")]
+    public void TestPullFlashedReturnsEmptyWhenNoFlashData()
+    {
+        var (factory, _) = PrepareFlashFactory();
+
+        var result = factory.PullFlashed();
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    [Description("PullFlashed returns request-scoped flash and clears it so GetFlashed is empty afterward.")]
+    public void TestPullFlashedClearsRequestScopedFlash()
+    {
+        var (factory, _) = PrepareFlashFactory();
+
+        factory.Flash("toast", "Saved!");
+
+        var pulled = factory.PullFlashed();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pulled, Has.Count.EqualTo(1));
+            Assert.That(pulled["toast"], Is.EqualTo("Saved!"));
+            Assert.That(factory.GetFlashed(), Is.Empty);
+        });
+    }
+
+    [Test]
+    [Description("PullFlashed returns TempData-backed flash and removes the TempData key.")]
+    public void TestPullFlashedClearsTempDataFlash()
+    {
+        var (factory, _, tempDataStore) = PrepareFlashFactoryWithTempData();
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new Dictionary<string, object?> { { "toast", "Welcome!" } });
+        tempDataStore["inertia.flash_data"] = json;
+
+        var pulled = factory.PullFlashed();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pulled, Has.Count.EqualTo(1));
+            Assert.That(pulled["toast"]?.ToString(), Is.EqualTo("Welcome!"));
+            Assert.That(tempDataStore.ContainsKey("inertia.flash_data"), Is.False);
+        });
+    }
+
+    [Test]
+    [Description("PullFlashed merges request-scoped and TempData flash, then clears both stores.")]
+    public void TestPullFlashedMergesAndClearsBothSources()
+    {
+        var (factory, httpContext, tempDataStore) = PrepareFlashFactoryWithTempData();
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new Dictionary<string, object?> { { "a", "1" } });
+        tempDataStore["inertia.flash_data"] = json;
+
+        factory.Flash("b", "2");
+
+        var pulled = factory.PullFlashed();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pulled, Has.Count.EqualTo(2));
+            Assert.That(pulled["a"]?.ToString(), Is.EqualTo("1"));
+            Assert.That(pulled["b"], Is.EqualTo("2"));
+            Assert.That(tempDataStore.ContainsKey("inertia.flash_data"), Is.False);
+            Assert.That(httpContext.Items.ContainsKey("inertia.flash_data"), Is.False);
+            Assert.That(factory.GetFlashed(), Is.Empty);
+        });
+    }
+
+    [Test]
+    [Description("Inertia.PullFlashed facade mirrors the factory behavior.")]
+    public void TestPullFlashedFacade()
+    {
+        var (_, _) = PrepareFlashFactory();
+
+        Inertia.Flash("toast", "Hello!");
+
+        var pulled = Inertia.PullFlashed();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pulled, Has.Count.EqualTo(1));
+            Assert.That(pulled["toast"], Is.EqualTo("Hello!"));
+            Assert.That(Inertia.GetFlashed(), Is.Empty);
         });
     }
 
