@@ -53,7 +53,7 @@ public partial class Tests
     [Description("Test component validation passes when component exists")]
     public void TestComponentValidationPassesWhenComponentExists()
     {
-        var tempDir = Path.GetTempPath();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"inertia-test-{Guid.NewGuid():N}");
         var pagesDir = Path.Combine(tempDir, "src", "Pages");
         Directory.CreateDirectory(pagesDir);
 
@@ -82,10 +82,8 @@ public partial class Tests
         }
         finally
         {
-            if (File.Exists(testComponent))
-                File.Delete(testComponent);
-            if (Directory.Exists(pagesDir))
-                Directory.Delete(pagesDir, true);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
         }
     }
 
@@ -93,7 +91,7 @@ public partial class Tests
     [Description("Test component validation works with nested paths")]
     public void TestComponentValidationWithNestedPaths()
     {
-        var tempDir = Path.GetTempPath();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"inertia-test-{Guid.NewGuid():N}");
         var pagesDir = Path.Combine(tempDir, "ClientApp", "src", "Pages", "Auth");
         Directory.CreateDirectory(pagesDir);
 
@@ -122,10 +120,8 @@ public partial class Tests
         }
         finally
         {
-            if (File.Exists(testComponent))
-                File.Delete(testComponent);
-            if (Directory.Exists(pagesDir))
-                Directory.Delete(pagesDir, true);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
         }
     }
 }
