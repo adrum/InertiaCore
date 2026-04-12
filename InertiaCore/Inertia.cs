@@ -17,7 +17,7 @@ public static class Inertia
 
     public static Task<IHtmlContent> Head(dynamic model) => _factory.Head(model);
 
-    public static Task<IHtmlContent> Html(dynamic model) => _factory.Html(model);
+    public static Task<IHtmlContent> Html(dynamic model, string id = "app") => _factory.Html(model, id);
 
     public static void Version(string? version) => _factory.Version(version);
 
