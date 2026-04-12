@@ -8,6 +8,7 @@ public class InertiaOptions
     public string SsrUrl { get; set; } = "http://127.0.0.1:13714/render";
     public bool SsrEnsureBundleExists { get; set; } = true;
     public bool SsrThrowOnError { get; set; } = false;
+    public string? SsrBundlePath { get; set; }
     public bool EncryptHistory { get; set; } = false;
 
     public bool EnsurePagesExist { get; set; } = false;
