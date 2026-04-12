@@ -55,6 +55,7 @@ internal interface IResponseFactory
     public OnceProp Once(Func<Task<object?>> callback);
     public OnceProp ShareOnce(string key, Func<object?> callback);
     public OnceProp ShareOnce(string key, Func<Task<object?>> callback);
+    public void TransformComponentUsing(Func<string, string?>? componentTransformer);
 }
 
 internal class ResponseFactory : IResponseFactory
@@ -67,6 +68,7 @@ internal class ResponseFactory : IResponseFactory
 
     private object? _version;
     private Func<ActionContext, string>? _urlResolver;
+    private Func<string, string?>? _componentTransformer;
 
     public ResponseFactory(IHttpContextAccessor contextAccessor, IGateway gateway, IInertiaSerializer serializer,
         IOptions<InertiaOptions> options, IWebHostEnvironment environment)
@@ -74,6 +76,11 @@ internal class ResponseFactory : IResponseFactory
 
     public Response Render(string component, object? props = null)
     {
+        if (_componentTransformer != null)
+        {
+            component = _componentTransformer(component) ?? component;
+        }
+
         if (_options.Value.EnsurePagesExist)
         {
             FindComponentOrFail(component);
@@ -250,6 +257,9 @@ internal class ResponseFactory : IResponseFactory
     }
 
     public void ResolveUrlUsing(Func<ActionContext, string> urlResolver) => _urlResolver = urlResolver;
+
+    public void TransformComponentUsing(Func<string, string?>? componentTransformer) =>
+        _componentTransformer = componentTransformer;
 
     public LazyProp Lazy(Func<object?> callback) => new(callback);
     public LazyProp Lazy(Func<Task<object?>> callback) => new(callback);
